@@ -33,13 +33,9 @@ pip install -r requirements.txt
 
 **Note:** If you get "No space left on device" error when installing opencv-python, free up disk space first or install on another machine.
 
-### 2. Set API key
+### 2. Set API key in .env file
 
-```bash
-export REKA_API_KEY=your-reka-key-here
-```
-
-Get your key from Reka (hackathon sponsor!)
+Create a `.env` file with your Reka API key (get from Reka dashboard)
 
 ### 3. Start vector store
 
