@@ -231,4 +231,3 @@ def parse_framed_message(raw: bytes) -> Optional[tuple[dict, bytes]]:
         return None
     return header, payload
 
-
