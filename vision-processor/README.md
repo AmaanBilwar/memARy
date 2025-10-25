@@ -1,16 +1,21 @@
 # Vision Processor - Reka AI
 
-Image → Keywords + Vectors pipeline for AR glasses memory system.
+2-Stage Pipeline: Image → Text → JSON + Vectors for AR glasses memory system.
 
 ## Architecture
 
 ```
 📸 Image (from AR glasses)
     ↓
-🤖 Reka Vision API
-    ↓ Extracts:
-    • Scene summary (text)
-    • Objects (keywords)
+🤖 Stage 1: Reka Vision API
+    ↓ Generates:
+    • Rich natural language text description
+    • Detailed object descriptions with context
+    ↓
+📝 Stage 2: Reka Text Processing
+    ↓ Extracts from text:
+    • Scene summary (condensed)
+    • Objects (structured keywords)
     • Attributes (color, position, confidence)
     ↓
 💾 Vector Store (ChromaDB)
@@ -19,6 +24,12 @@ Image → Keywords + Vectors pipeline for AR glasses memory system.
     • Per-object vectors
     • Searchable memory
 ```
+
+### Why 2-Stage Pipeline?
+
+- **Stage 1 (Image→Text)**: Rich descriptive text captures more nuance
+- **Stage 2 (Text→JSON)**: Structured extraction for precise object tracking
+- **Better recall**: Text summaries provide context that pure object detection misses
 
 ## Setup
 
@@ -49,7 +60,7 @@ Runs on http://localhost:8001
 
 ## Usage
 
-### Test vision only
+### Test vision only (2-stage pipeline)
 
 ```bash
 python vision_reka.py path/to/image.jpg
@@ -57,6 +68,18 @@ python vision_reka.py path/to/image.jpg
 
 Output:
 ```
+📸 Stage 1: Converting image to text summary...
+✓ Text summary generated (234 chars)
+📝 Stage 2: Extracting structured data from text...
+✓ Extracted 3 objects
+
+📄 Text Summary:
+------------------------------------------------------------
+The image shows an office desk with a silver laptop in the
+center, a red coffee mug on the left side, and a black phone
+on the right side of the desk.
+------------------------------------------------------------
+
 📝 Scene: Office desk with laptop and coffee mug
 
 🎯 Keywords/Objects (3):
@@ -65,7 +88,7 @@ Output:
    • phone (color: black, at: right) [88%]
 ```
 
-### Full pipeline (vision + storage)
+### Full pipeline (2-stage vision + storage)
 
 ```bash
 python integration_reka.py path/to/image.jpg
@@ -73,8 +96,14 @@ python integration_reka.py path/to/image.jpg
 
 Output:
 ```
+IMAGE → TEXT → JSON → VECTOR STORE PIPELINE
+
 📸 Processing: path/to/image.jpg
-🤖 Analyzing with Reka...
+🤖 Analyzing with Reka (2-stage)...
+📸 Stage 1: Converting image to text summary...
+✓ Text summary generated (234 chars)
+📝 Stage 2: Extracting structured data from text...
+✓ Extracted 3 objects
 💾 Storing in vector database...
 ✓ Stored: user_123:session_123:1761378900
 ✓ Objects: 3
@@ -242,14 +271,40 @@ Commands:
 
 ## API
 
-### `analyze_image(image_path: str) -> dict`
+### `image_to_text_summary(image_path: str) -> str`
 
-Analyzes image and returns structured data.
+Stage 1: Converts image to natural language text description.
+
+**Returns:** Rich text description of scene and objects.
+
+### `text_summary_to_json(text_summary: str) -> dict`
+
+Stage 2: Extracts structured data from text summary.
 
 **Returns:**
 ```python
 {
     "scene_summary": str,
+    "objects": [
+        {
+            "label": str,
+            "confidence": float,
+            "color": str | None,
+            "rel_pos": str | None
+        }
+    ]
+}
+```
+
+### `analyze_image(image_path: str) -> dict`
+
+Complete 2-stage pipeline: image → text → JSON.
+
+**Returns:**
+```python
+{
+    "scene_summary": str,
+    "text_summary": str,  # The intermediate text description
     "objects": [
         {
             "label": str,

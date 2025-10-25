@@ -1,0 +1,1656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remembar API Tester</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            color: #667eea;
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #555;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        input[type="text"], input[type="url"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus, input[type="url"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .upload-area {
+            border: 3px dashed #e0e0e0;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9fa;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #667eea;
+            background: #e8ebff;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .preview-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        #imagePreview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #f0f2ff;
+            color: #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e3ff;
+        }
+
+        .response-box {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            font-size: 0.9em;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .response-box.natural-language {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 1.1em;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e8ebff 100%);
+        }
+
+        .response-box.code {
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+        }
+
+        .success {
+            color: #28a745;
+            border-left: 4px solid #28a745;
+        }
+
+        .success.natural-language {
+            color: #333;
+            border-left: 4px solid #667eea;
+        }
+
+        .error {
+            color: #dc3545;
+            border-left: 4px solid #dc3545;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            background: #f0f2ff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #667eea;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Timeline styles */
+        .timeline-group {
+            margin-bottom: 30px;
+        }
+
+        .timeline-group-header {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e3ff;
+        }
+
+        .memory-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-left: 4px solid #667eea;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .memory-card:hover {
+            background: #f0f2ff;
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .memory-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .memory-time {
+            font-size: 0.85em;
+            color: #999;
+        }
+
+        .memory-session {
+            font-size: 0.85em;
+            color: #667eea;
+            background: #e8ebff;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
+        .memory-scene {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .memory-objects {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .object-tag {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+        }
+
+        .memory-details {
+            display: none;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .memory-details.active {
+            display: block;
+        }
+
+        .memory-details-text {
+            font-size: 0.9em;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .empty-timeline {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-timeline-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        /* Statistics styles */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .chart-container {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .chart-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .object-bar {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .object-name {
+            min-width: 120px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .object-bar-fill {
+            flex: 1;
+            height: 24px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 8px;
+            color: white;
+            font-size: 0.85em;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .timeline-chart {
+            display: flex;
+            align-items: flex-end;
+            height: 200px;
+            gap: 5px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .timeline-bar {
+            flex: 1;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px 4px 0 0;
+            position: relative;
+            transition: all 0.3s;
+            cursor: pointer;
+            min-width: 20px;
+        }
+
+        .timeline-bar:hover {
+            opacity: 0.8;
+            transform: translateY(-5px);
+        }
+
+        .timeline-bar-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75em;
+            color: #666;
+            white-space: nowrap;
+        }
+
+        .timeline-bar-value {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.85em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .session-list {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .session-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .session-id {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .session-count {
+            background: #667eea;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+        }
+
+        .session-info {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        /* Flashcard styles */
+        .flashcard {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            padding: 40px;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.3s;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            position: relative;
+        }
+
+        .flashcard:hover {
+            transform: translateY(-5px);
+        }
+
+        .flashcard.flipped {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+
+        .flashcard-question {
+            font-size: 1.5em;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .flashcard.flipped .flashcard-question {
+            display: none;
+        }
+
+        .flashcard-answer {
+            display: none;
+            font-size: 1.2em;
+            text-align: center;
+            line-height: 1.8;
+        }
+
+        .flashcard.flipped .flashcard-answer {
+            display: block;
+        }
+
+        .flashcard-hint {
+            position: absolute;
+            bottom: 20px;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .flashcard-hint-back {
+            display: none;
+        }
+
+        .flashcard.flipped .flashcard-hint-front {
+            display: none;
+        }
+
+        .flashcard.flipped .flashcard-hint-back {
+            display: block;
+        }
+
+        .flashcard-objects {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .flashcard-object {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 1em;
+        }
+
+        .flashcard-time {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 0.85em;
+            opacity: 0.8;
+        }
+
+        .flashcard-session {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 0.85em;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 12px;
+            border-radius: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 Remembar API Tester</h1>
+        <p class="subtitle">Test your vision memory API</p>
+
+        <!-- API URL Configuration -->
+        <div class="section">
+            <div class="input-group">
+                <label for="apiUrl">API Base URL</label>
+                <input type="url" id="apiUrl" value="http://localhost:8000" placeholder="http://localhost:8000">
+            </div>
+            <button class="btn-secondary" onclick="clearStorage()" style="width: 100%; margin-top: 10px;">
+                🗑️ Clear All Storage
+            </button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('upload')">📝 Text to JSON</button>
+            <button class="tab" onclick="switchTab('search')">🔍 Search Memories</button>
+            <button class="tab" onclick="switchTab('timeline')">📅 Timeline</button>
+            <button class="tab" onclick="switchTab('statistics')">📊 Statistics</button>
+            <button class="tab" onclick="switchTab('tracked')">📌 Tracked Items</button>
+            <button class="tab" onclick="switchTab('flashcards')">🎴 Flashcards</button>
+        </div>
+
+        <!-- Upload Tab -->
+        <div id="uploadTab" class="tab-content active">
+            <div class="section">
+                <div class="input-group">
+                    <label for="sessionId">Session ID</label>
+                    <input type="text" id="sessionId" value="test-session" placeholder="test-session">
+                </div>
+
+                <div class="input-group">
+                    <label for="textInput">Text Description</label>
+                    <textarea 
+                        id="textInput" 
+                        placeholder="Describe what you see... e.g., 'The image shows an office desk with a silver laptop in the center, a red coffee mug on the left side, and a black phone on the right.'"
+                        rows="8"
+                        style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em; font-family: inherit; resize: vertical;"
+                    ></textarea>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-primary" id="uploadBtn" onclick="processText()">
+                        🔄 Convert to JSON
+                    </button>
+                    <button class="btn-secondary" onclick="clearInput()">
+                        Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Tab -->
+        <div id="searchTab" class="tab-content">
+            <div class="section">
+                <div class="input-group">
+                    <label for="searchQuery">Ask About Your Memories</label>
+                    <input type="text" id="searchQuery" placeholder="Where is my notebook? What did I see?" value="notebook">
+                </div>
+
+                <div class="input-group">
+                    <label for="searchSessionId">Session ID (optional)</label>
+                    <input type="text" id="searchSessionId" placeholder="Leave empty to search all sessions">
+                </div>
+
+                <button class="btn-primary" onclick="searchMemories()">
+                    🔍 Search
+                </button>
+            </div>
+        </div>
+
+        <!-- Timeline Tab -->
+        <div id="timelineTab" class="tab-content">
+            <div class="section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="margin: 0;">Memory Timeline</h2>
+                    <button class="btn-secondary" onclick="loadTimeline()" style="padding: 8px 16px;">
+                        🔄 Refresh
+                    </button>
+                </div>
+                <div id="timelineContent">
+                    <p style="text-align: center; color: #999; padding: 40px;">
+                        Click refresh to load your memories
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Tab -->
+        <div id="statisticsTab" class="tab-content">
+            <div class="section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="margin: 0;">Memory Statistics</h2>
+                    <button class="btn-secondary" onclick="loadStatistics()" style="padding: 8px 16px;">
+                        🔄 Refresh
+                    </button>
+                </div>
+                <div id="statisticsContent">
+                    <p style="text-align: center; color: #999; padding: 40px;">
+                        Click refresh to load statistics
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tracked Items Tab -->
+        <div id="trackedTab" class="tab-content">
+            <div class="section">
+                <h2 style="margin-bottom: 10px;">📌 Tracked Items & Alerts</h2>
+                <p style="color: #666; margin-bottom: 20px;">Track important items and get alerts when they haven't been seen</p>
+                
+                <!-- Add Tracked Item Form -->
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">Add Item to Track</h3>
+                    <div class="input-group">
+                        <label for="trackItemName">Item Name</label>
+                        <input type="text" id="trackItemName" placeholder="e.g., keys, wallet, medication">
+                    </div>
+                    <div class="input-group">
+                        <label for="trackAlertHours">Alert if not seen for (hours)</label>
+                        <input type="number" id="trackAlertHours" value="24" min="1" max="168">
+                    </div>
+                    <div class="input-group">
+                        <label for="trackNotes">Notes (optional)</label>
+                        <input type="text" id="trackNotes" placeholder="Why are you tracking this?">
+                    </div>
+                    <button class="btn-primary" onclick="addTrackedItem()">
+                        ➕ Start Tracking
+                    </button>
+                </div>
+                
+                <!-- Tracked Items List -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">Your Tracked Items</h3>
+                    <button class="btn-secondary" onclick="loadTrackedItems()" style="padding: 8px 16px;">
+                        🔄 Refresh
+                    </button>
+                </div>
+                <div id="trackedItemsList">
+                    <p style="text-align: center; color: #999; padding: 40px;">
+                        Click refresh to load tracked items
+                    </p>
+                </div>
+                
+                <!-- Relationships Section -->
+                <div style="margin-top: 30px;">
+                    <h3 style="margin-bottom: 15px;">🔗 Object Relationships</h3>
+                    <p style="color: #666; margin-bottom: 15px;">Items that are often seen together</p>
+                    <button class="btn-secondary" onclick="loadRelationships()" style="margin-bottom: 15px;">
+                        🔄 Load Relationships
+                    </button>
+                    <div id="relationshipsList">
+                        <p style="text-align: center; color: #999; padding: 20px;">
+                            Click to load relationships
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flashcards Tab -->
+        <div id="flashcardsTab" class="tab-content">
+            <div class="section">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h2 style="margin-bottom: 10px;">Memory Flashcards</h2>
+                    <p style="color: #666;">Test your memory recall</p>
+                </div>
+                <div id="flashcardContainer">
+                    <p style="text-align: center; color: #999; padding: 40px;">
+                        No memories available for flashcards yet
+                    </p>
+                </div>
+                <div id="flashcardControls" style="display: none; text-align: center; margin-top: 20px;">
+                    <button class="btn-secondary" onclick="previousCard()" style="margin: 0 5px;">
+                        ← Previous
+                    </button>
+                    <span id="cardCounter" style="margin: 0 15px; font-weight: bold;">1 / 1</span>
+                    <button class="btn-secondary" onclick="nextCard()" style="margin: 0 5px;">
+                        Next →
+                    </button>
+                    <button class="btn-primary" onclick="shuffleCards()" style="margin-left: 20px;">
+                        🔀 Shuffle
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #667eea;">Processing...</p>
+        </div>
+
+        <!-- Response Display -->
+        <div class="section" id="responseSection" style="display: none;">
+            <div class="section-title">Response</div>
+            <div class="response-box" id="responseBox"></div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            if (tab === 'upload') {
+                document.querySelector('.tabs .tab:nth-child(1)').classList.add('active');
+                document.getElementById('uploadTab').classList.add('active');
+            } else if (tab === 'search') {
+                document.querySelector('.tabs .tab:nth-child(2)').classList.add('active');
+                document.getElementById('searchTab').classList.add('active');
+            } else if (tab === 'timeline') {
+                document.querySelector('.tabs .tab:nth-child(3)').classList.add('active');
+                document.getElementById('timelineTab').classList.add('active');
+                // Auto-load timeline when switching to it
+                loadTimeline();
+            } else if (tab === 'statistics') {
+                document.querySelector('.tabs .tab:nth-child(4)').classList.add('active');
+                document.getElementById('statisticsTab').classList.add('active');
+                // Auto-load statistics when switching to it
+                loadStatistics();
+            } else if (tab === 'tracked') {
+                document.querySelector('.tabs .tab:nth-child(5)').classList.add('active');
+                document.getElementById('trackedTab').classList.add('active');
+                // Auto-load tracked items when switching to it
+                loadTrackedItems();
+            } else if (tab === 'flashcards') {
+                document.querySelector('.tabs .tab:nth-child(6)').classList.add('active');
+                document.getElementById('flashcardsTab').classList.add('active');
+                // Auto-load flashcards when switching to it
+                loadFlashcards();
+            }
+        }
+
+        function clearInput() {
+            document.getElementById('textInput').value = '';
+            hideResponse();
+        }
+
+        // Clear all storage
+        async function clearStorage() {
+            if (!confirm('⚠️ This will delete ALL stored memories (in-memory and vector database). Are you sure?')) {
+                return;
+            }
+
+            const apiUrl = document.getElementById('apiUrl').value;
+            showLoading();
+            hideResponse();
+
+            try {
+                const response = await fetch(`${apiUrl}/clear_storage`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+                hideLoading();
+
+                if (response.ok) {
+                    const message = `✅ Storage cleared successfully!\n\n` +
+                                  `• Cleared ${data.cleared_memory_items} in-memory items\n` +
+                                  `• Vector store: ${data.vector_store_cleared ? 'Cleared' : 'Not available'}`;
+                    showResponse(message, 'success');
+                } else {
+                    showResponse(JSON.stringify(data, null, 2), 'error');
+                }
+            } catch (error) {
+                hideLoading();
+                showResponse(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Process text to JSON
+        async function processText() {
+            const textInput = document.getElementById('textInput').value.trim();
+            const apiUrl = document.getElementById('apiUrl').value;
+            const sessionId = document.getElementById('sessionId').value;
+
+            if (!textInput) {
+                alert('Please enter a text description');
+                return;
+            }
+
+            showLoading();
+            hideResponse();
+
+            try {
+                const response = await fetch(`${apiUrl}/store_text`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text_summary: textInput,
+                        session_id: sessionId
+                    })
+                });
+
+                const data = await response.json();
+                hideLoading();
+
+                if (response.ok) {
+                    showResponse(JSON.stringify(data, null, 2), 'success');
+                } else {
+                    showResponse(JSON.stringify(data, null, 2), 'error');
+                }
+            } catch (error) {
+                hideLoading();
+                showResponse(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Search memories
+        async function searchMemories() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const query = document.getElementById('searchQuery').value;
+            const sessionId = document.getElementById('searchSessionId').value;
+
+            if (!query.trim()) {
+                alert('Please enter a search query');
+                return;
+            }
+
+            showLoading();
+            hideResponse();
+
+            try {
+                let url = `${apiUrl}/search?query=${encodeURIComponent(query)}`;
+                if (sessionId.trim()) {
+                    url += `&session_id=${encodeURIComponent(sessionId)}`;
+                }
+
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                hideLoading();
+
+                if (response.ok && data.answer) {
+                    // Show natural language answer prominently
+                    const displayText = `🤖 ${data.answer}`;
+                    showResponse(displayText, 'success', true);
+                } else if (response.ok) {
+                    showResponse(JSON.stringify(data, null, 2), 'success', false);
+                } else {
+                    showResponse(JSON.stringify(data, null, 2), 'error', false);
+                }
+            } catch (error) {
+                hideLoading();
+                showResponse(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // UI helpers
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showResponse(text, type, isNaturalLanguage = false) {
+            const responseBox = document.getElementById('responseBox');
+            const responseSection = document.getElementById('responseSection');
+            
+            responseBox.textContent = text;
+            const classes = ['response-box', type];
+            if (isNaturalLanguage) {
+                classes.push('natural-language');
+            } else {
+                classes.push('code');
+            }
+            responseBox.className = classes.join(' ');
+            responseSection.style.display = 'block';
+        }
+
+        function hideResponse() {
+            document.getElementById('responseSection').style.display = 'none';
+        }
+
+        // Timeline functions
+        async function loadTimeline() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const timelineContent = document.getElementById('timelineContent');
+            
+            timelineContent.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">Loading...</p>';
+            
+            try {
+                const response = await fetch(`${apiUrl}/memories?limit=100`);
+                const data = await response.json();
+                
+                if (response.ok && data.memories && data.memories.length > 0) {
+                    displayTimeline(data.memories);
+                } else {
+                    timelineContent.innerHTML = `
+                        <div class="empty-timeline">
+                            <div class="empty-timeline-icon">📭</div>
+                            <h3>No Memories Yet</h3>
+                            <p>Add some text descriptions to see them here!</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                timelineContent.innerHTML = `
+                    <div class="empty-timeline">
+                        <div class="empty-timeline-icon">⚠️</div>
+                        <h3>Error Loading Timeline</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displayTimeline(memories) {
+            const grouped = groupMemoriesByDate(memories);
+            const timelineContent = document.getElementById('timelineContent');
+            
+            let html = '';
+            
+            for (const [groupName, groupMemories] of Object.entries(grouped)) {
+                html += `
+                    <div class="timeline-group">
+                        <div class="timeline-group-header">${groupName}</div>
+                `;
+                
+                groupMemories.forEach((memory, index) => {
+                    const memoryId = `memory-${memory.timestamp}-${index}`;
+                    const timeStr = formatTime(memory.timestamp);
+                    const objects = memory.objects || [];
+                    
+                    html += `
+                        <div class="memory-card" onclick="toggleMemoryDetails('${memoryId}')">
+                            <div class="memory-card-header">
+                                <span class="memory-time">${timeStr}</span>
+                                <span class="memory-session">${memory.session_id || 'default'}</span>
+                            </div>
+                            <div class="memory-scene">${memory.scene || 'No scene description'}</div>
+                            <div class="memory-objects">
+                                ${objects.map(obj => {
+                                    const colorText = obj.color ? ` (${obj.color})` : '';
+                                    return `<span class="object-tag">${obj.label}${colorText}</span>`;
+                                }).join('')}
+                            </div>
+                            <div class="memory-details" id="${memoryId}">
+                                <div class="memory-details-text">
+                                    <strong>Original Text:</strong><br>
+                                    ${memory.text_summary || 'N/A'}<br><br>
+                                    <strong>Objects:</strong><br>
+                                    ${objects.map(obj => {
+                                        let details = `• ${obj.label}`;
+                                        if (obj.color) details += ` (color: ${obj.color})`;
+                                        if (obj.rel_pos) details += ` at ${obj.rel_pos}`;
+                                        details += ` [${Math.round(obj.confidence * 100)}% confidence]`;
+                                        return details;
+                                    }).join('<br>')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+            }
+            
+            timelineContent.innerHTML = html;
+        }
+
+        function groupMemoriesByDate(memories) {
+            const groups = {
+                'Today': [],
+                'Yesterday': [],
+                'Last Week': [],
+                'Older': []
+            };
+            
+            const now = new Date();
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000;
+            const yesterdayStart = todayStart - 86400;
+            const lastWeekStart = todayStart - (7 * 86400);
+            
+            memories.forEach(memory => {
+                const timestamp = memory.timestamp;
+                
+                if (timestamp >= todayStart) {
+                    groups['Today'].push(memory);
+                } else if (timestamp >= yesterdayStart) {
+                    groups['Yesterday'].push(memory);
+                } else if (timestamp >= lastWeekStart) {
+                    groups['Last Week'].push(memory);
+                } else {
+                    groups['Older'].push(memory);
+                }
+            });
+            
+            // Remove empty groups
+            Object.keys(groups).forEach(key => {
+                if (groups[key].length === 0) {
+                    delete groups[key];
+                }
+            });
+            
+            return groups;
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp * 1000);
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+
+        function toggleMemoryDetails(memoryId) {
+            const details = document.getElementById(memoryId);
+            details.classList.toggle('active');
+        }
+
+        // Statistics functions
+        async function loadStatistics() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const statisticsContent = document.getElementById('statisticsContent');
+            
+            statisticsContent.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">Loading statistics...</p>';
+            
+            try {
+                const response = await fetch(`${apiUrl}/statistics`);
+                const data = await response.json();
+                
+                if (response.ok && data.ok) {
+                    displayStatistics(data);
+                } else {
+                    statisticsContent.innerHTML = `
+                        <div class="empty-timeline">
+                            <div class="empty-timeline-icon">⚠️</div>
+                            <h3>Error Loading Statistics</h3>
+                            <p>${data.detail || 'Unknown error'}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                statisticsContent.innerHTML = `
+                    <div class="empty-timeline">
+                        <div class="empty-timeline-icon">⚠️</div>
+                        <h3>Error Loading Statistics</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displayStatistics(data) {
+            const container = document.getElementById('statisticsContent');
+            
+            if (data.total_memories === 0) {
+                container.innerHTML = `
+                    <div class="empty-timeline">
+                        <div class="empty-timeline-icon">📊</div>
+                        <h3>No Data Yet</h3>
+                        <p>Add some memories to see statistics!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Summary stats
+            let html = `
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">${data.total_memories}</div>
+                        <div class="stat-label">Total Memories</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.total_objects}</div>
+                        <div class="stat-label">Objects Detected</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.unique_objects}</div>
+                        <div class="stat-label">Unique Objects</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.sessions}</div>
+                        <div class="stat-label">Sessions</div>
+                    </div>
+                </div>
+            `;
+            
+            // Timeline chart
+            if (data.timeline_data && data.timeline_data.length > 0) {
+                const maxCount = Math.max(...data.timeline_data.map(d => d.count));
+                html += `
+                    <div class="chart-container">
+                        <div class="chart-title">📈 Memory Timeline</div>
+                        <div class="timeline-chart" style="margin-bottom: 40px;">
+                `;
+                
+                data.timeline_data.forEach(point => {
+                    const height = maxCount > 0 ? (point.count / maxCount) * 100 : 10;
+                    html += `
+                        <div class="timeline-bar" style="height: ${height}%;" title="${point.label}: ${point.count} memories">
+                            <div class="timeline-bar-value">${point.count}</div>
+                            <div class="timeline-bar-label">${point.label}</div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Most common objects
+            if (data.most_common_objects && data.most_common_objects.length > 0) {
+                html += `
+                    <div class="chart-container">
+                        <div class="chart-title">🏆 Most Common Objects</div>
+                `;
+                
+                data.most_common_objects.forEach(obj => {
+                    const colors = obj.common_colors.map(c => `${c.color} (${c.count})`).join(', ');
+                    html += `
+                        <div class="object-bar">
+                            <div class="object-name">${obj.object}</div>
+                            <div class="object-bar-fill" style="width: ${obj.percentage}%;" title="${colors || 'No colors'}">
+                                ${obj.count} (${obj.percentage}%)
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+            }
+            
+            // Session stats
+            if (data.session_stats && data.session_stats.length > 0) {
+                html += `
+                    <div class="chart-container">
+                        <div class="chart-title">📝 Most Active Sessions</div>
+                        <div class="session-list">
+                `;
+                
+                data.session_stats.forEach(session => {
+                    const lastActive = new Date(session.last_active * 1000).toLocaleString();
+                    html += `
+                        <div class="session-item">
+                            <div class="session-header">
+                                <span class="session-id">${session.session_id}</span>
+                                <span class="session-count">${session.memory_count} memories</span>
+                            </div>
+                            <div class="session-info">
+                                ${session.unique_objects} unique objects • Last active: ${lastActive}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        // Flashcard functions
+        let flashcardsData = [];
+        let currentCardIndex = 0;
+
+        async function loadFlashcards() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const container = document.getElementById('flashcardContainer');
+            
+            container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">Loading flashcards...</p>';
+            
+            try {
+                const response = await fetch(`${apiUrl}/memories?limit=100`);
+                const data = await response.json();
+                
+                if (response.ok && data.memories && data.memories.length > 0) {
+                    flashcardsData = data.memories;
+                    currentCardIndex = 0;
+                    displayFlashcard();
+                    document.getElementById('flashcardControls').style.display = 'block';
+                } else {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 60px; color: #999;">
+                            <div style="font-size: 4em; margin-bottom: 20px;">🎴</div>
+                            <h3>No Memories Available</h3>
+                            <p>Add some text descriptions to create flashcards!</p>
+                        </div>
+                    `;
+                    document.getElementById('flashcardControls').style.display = 'none';
+                }
+            } catch (error) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 60px; color: #999;">
+                        <div style="font-size: 4em; margin-bottom: 20px;">⚠️</div>
+                        <h3>Error Loading Flashcards</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                document.getElementById('flashcardControls').style.display = 'none';
+            }
+        }
+
+        function generateQuestion(memory) {
+            // Generate intelligent questions based on memory content
+            if (!memory.objects || memory.objects.length === 0) {
+                return "What was in this memory?";
+            }
+            
+            // Randomly pick a question type for variety
+            const questionTypes = [];
+            
+            // Check if objects have colors
+            const objectsWithColor = memory.objects.filter(obj => obj.color && obj.color !== 'null');
+            if (objectsWithColor.length > 0) {
+                const obj = objectsWithColor[0];
+                const label = obj.label || obj.name || 'object';
+                questionTypes.push(`What color was the ${label}?`);
+            }
+            
+            // Check if objects have positions
+            const objectsWithPos = memory.objects.filter(obj => obj.rel_pos && obj.rel_pos !== 'null' && obj.rel_pos !== 'unknown');
+            if (objectsWithPos.length > 0) {
+                const obj = objectsWithPos[0];
+                const label = obj.label || obj.name || 'object';
+                questionTypes.push(`Where was the ${label}?`);
+            }
+            
+            // General questions about objects
+            if (memory.objects.length > 0) {
+                const obj = memory.objects[0];
+                const label = obj.label || obj.name || 'object';
+                questionTypes.push(`What did you see with the ${label}?`);
+                questionTypes.push(`Describe the ${label}`);
+            }
+            
+            // If multiple objects, ask about all
+            if (memory.objects.length > 1) {
+                questionTypes.push("What objects were in this scene?");
+            }
+            
+            // Pick one question randomly (or first if you want consistency)
+            return questionTypes.length > 0 ? questionTypes[0] : "What was in this memory?";
+        }
+
+        function generateAnswer(memory) {
+            // Generate natural language answer
+            let answer = memory.scene;
+            
+            // Add specific details based on objects
+            if (memory.objects && memory.objects.length > 0) {
+                const obj = memory.objects[0];
+                const label = obj.label || obj.name || 'object';
+                const color = obj.color && obj.color !== 'null' ? obj.color : null;
+                const pos = obj.rel_pos && obj.rel_pos !== 'null' && obj.rel_pos !== 'unknown' ? obj.rel_pos : null;
+                
+                if (color && pos) {
+                    answer = `The ${label} was ${color} and was ${pos}.`;
+                } else if (color) {
+                    answer = `The ${label} was ${color}.`;
+                } else if (pos) {
+                    answer = `The ${label} was ${pos}.`;
+                } else {
+                    answer = `There was a ${label} in the scene.`;
+                }
+            }
+            
+            return answer;
+        }
+
+        function displayFlashcard() {
+            if (flashcardsData.length === 0) return;
+            
+            const memory = flashcardsData[currentCardIndex];
+            const container = document.getElementById('flashcardContainer');
+            const counter = document.getElementById('cardCounter');
+            
+            // Format time
+            const date = new Date(memory.timestamp * 1000);
+            const timeStr = date.toLocaleString();
+            
+            // Generate question and answer
+            const question = generateQuestion(memory);
+            const answer = generateAnswer(memory);
+            
+            // Build objects list
+            let objectsHTML = '';
+            if (memory.objects && memory.objects.length > 0) {
+                objectsHTML = '<div class="flashcard-objects">';
+                memory.objects.forEach(obj => {
+                    const label = obj.label || obj.name || 'unknown';
+                    const color = obj.color && obj.color !== 'null' ? ` (${obj.color})` : '';
+                    objectsHTML += `<div class="flashcard-object">${label}${color}</div>`;
+                });
+                objectsHTML += '</div>';
+            }
+            
+            // Create flashcard
+            const html = `
+                <div class="flashcard" id="currentCard" onclick="flipCard()">
+                    <div class="flashcard-session">${memory.session_id}</div>
+                    <div class="flashcard-time">${timeStr}</div>
+                    <div class="flashcard-question">
+                        <div style="font-size: 1.8em; margin-bottom: 30px;">🤔</div>
+                        <div style="font-size: 1.4em; line-height: 1.5;">${question}</div>
+                    </div>
+                    <div class="flashcard-answer">
+                        <div style="font-size: 1.5em; margin-bottom: 20px;">💡</div>
+                        <div style="font-weight: 600; margin-bottom: 15px; font-size: 1.3em;">${answer}</div>
+                        ${objectsHTML}
+                        ${memory.text_summary ? `<p style="margin-top: 20px; font-size: 1em; opacity: 0.9; line-height: 1.6; font-style: italic;">"${memory.text_summary}"</p>` : ''}
+                    </div>
+                    <div class="flashcard-hint flashcard-hint-front">💭 Click to see answer</div>
+                    <div class="flashcard-hint flashcard-hint-back">🔄 Click to see question</div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+            counter.textContent = `${currentCardIndex + 1} / ${flashcardsData.length}`;
+        }
+
+        function flipCard() {
+            const card = document.getElementById('currentCard');
+            card.classList.toggle('flipped');
+        }
+
+        function nextCard() {
+            if (flashcardsData.length === 0) return;
+            currentCardIndex = (currentCardIndex + 1) % flashcardsData.length;
+            displayFlashcard();
+        }
+
+        function previousCard() {
+            if (flashcardsData.length === 0) return;
+            currentCardIndex = (currentCardIndex - 1 + flashcardsData.length) % flashcardsData.length;
+            displayFlashcard();
+        }
+
+        function shuffleCards() {
+            if (flashcardsData.length === 0) return;
+            
+            // Fisher-Yates shuffle
+            for (let i = flashcardsData.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [flashcardsData[i], flashcardsData[j]] = [flashcardsData[j], flashcardsData[i]];
+            }
+            
+            currentCardIndex = 0;
+            displayFlashcard();
+        }
+
+        // Tracked Items functions
+        async function addTrackedItem() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const itemName = document.getElementById('trackItemName').value.trim();
+            const alertHours = parseInt(document.getElementById('trackAlertHours').value);
+            const notes = document.getElementById('trackNotes').value.trim();
+
+            if (!itemName) {
+                alert('Please enter an item name');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${apiUrl}/track_item`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        item_name: itemName,
+                        alert_hours: alertHours,
+                        notes: notes
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ Now tracking "${itemName}"`);
+                    document.getElementById('trackItemName').value = '';
+                    document.getElementById('trackNotes').value = '';
+                    loadTrackedItems();
+                } else {
+                    alert(`Error: ${data.detail || 'Failed to track item'}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        async function loadTrackedItems() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const container = document.getElementById('trackedItemsList');
+
+            container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Loading...</p>';
+
+            try {
+                const response = await fetch(`${apiUrl}/tracked_items`);
+                const data = await response.json();
+
+                if (response.ok && data.tracked_items && data.tracked_items.length > 0) {
+                    let html = '';
+
+                    // Show alert count if any
+                    if (data.alerts_count > 0) {
+                        html += `
+                            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                                <strong>⚠️ ${data.alerts_count} Alert${data.alerts_count > 1 ? 's' : ''}</strong>
+                                <p style="margin: 5px 0 0 0; color: #856404;">Some tracked items haven't been seen recently</p>
+                            </div>
+                        `;
+                    }
+
+                    data.tracked_items.forEach(item => {
+                        const statusColors = {
+                            'alert': '#dc3545',
+                            'ok': '#28a745',
+                            'never_seen': '#6c757d'
+                        };
+                        const statusIcons = {
+                            'alert': '⚠️',
+                            'ok': '✅',
+                            'never_seen': '📌'
+                        };
+                        const bgColor = item.status === 'alert' ? '#fff5f5' : '#f8f9fa';
+
+                        html += `
+                            <div style="background: ${bgColor}; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid ${statusColors[item.status]};">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <div>
+                                        <strong style="font-size: 1.1em; color: #333;">${statusIcons[item.status]} ${item.name}</strong>
+                                    </div>
+                                    <button onclick="removeTrackedItem('${item.name}')" style="background: #dc3545; color: white; border: none; padding: 5px 12px; border-radius: 5px; cursor: pointer;">
+                                        Remove
+                                    </button>
+                                </div>
+                                <div style="font-size: 0.9em; color: #666;">
+                                    ${item.last_seen ? 
+                                        `Last seen: ${item.hours_since_seen}h ago ${item.status === 'alert' ? '(Alert threshold: ' + item.alert_hours + 'h)' : ''}` : 
+                                        'Never seen yet'}
+                                    ${item.notes ? `<br>Note: ${item.notes}` : ''}
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: #999;">
+                            <div style="font-size: 3em; margin-bottom: 15px;">📌</div>
+                            <h3>No Tracked Items</h3>
+                            <p>Add items above to start tracking them!</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #dc3545;">
+                        <div style="font-size: 3em; margin-bottom: 15px;">⚠️</div>
+                        <h3>Error Loading Tracked Items</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function removeTrackedItem(itemName) {
+            if (!confirm(`Stop tracking "${itemName}"?`)) {
+                return;
+            }
+
+            const apiUrl = document.getElementById('apiUrl').value;
+
+            try {
+                const response = await fetch(`${apiUrl}/track_item/${encodeURIComponent(itemName)}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ Stopped tracking "${itemName}"`);
+                    loadTrackedItems();
+                } else {
+                    alert(`Error: ${data.detail || 'Failed to remove item'}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        async function loadRelationships() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const container = document.getElementById('relationshipsList');
+
+            container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Loading...</p>';
+
+            try {
+                const response = await fetch(`${apiUrl}/relationships`);
+                const data = await response.json();
+
+                if (response.ok && data.relationships && data.relationships.length > 0) {
+                    let html = '<div style="background: #f8f9fa; padding: 15px; border-radius: 10px;">';
+
+                    data.relationships.forEach((rel, index) => {
+                        html += `
+                            <div style="padding: 10px; margin-bottom: 8px; background: white; border-radius: 8px;">
+                                <span style="font-weight: 600; color: #667eea;">${rel.item1}</span>
+                                <span style="color: #999;"> ↔️ </span>
+                                <span style="font-weight: 600; color: #764ba2;">${rel.item2}</span>
+                                <span style="background: #e8ebff; padding: 3px 8px; border-radius: 12px; font-size: 0.85em; margin-left: 10px;">
+                                    ${rel.count} times
+                                </span>
+                            </div>
+                        `;
+                    });
+
+                    html += '</div>';
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: #999;">
+                            <p>No relationships found yet. Add memories with multiple objects to see patterns!</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #dc3545;">
+                        <p>Error loading relationships: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
+
+

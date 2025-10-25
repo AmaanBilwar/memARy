@@ -1,6 +1,6 @@
 """
-Complete Pipeline: Image → Reka → Vector Store
-Integrates vision analysis with ChromaDB memory storage
+Complete Pipeline: Image → Text Summary → JSON → Vector Store
+2-stage vision analysis with ChromaDB memory storage
 """
 import os
 import time
@@ -17,17 +17,17 @@ DEVICE_ID = os.getenv("DEVICE_ID", "glasses_01")
 
 def process_image_to_memory(image_path: str, session_id: str = None) -> dict:
     """
-    Complete pipeline:
-    1. Image → Reka vision analysis
-    2. Extract keywords + objects
+    Complete 2-stage pipeline:
+    1. Image → Text summary (Reka vision)
+    2. Text summary → JSON (structured extraction)
     3. Store in vector database with embeddings
     4. Return results
     """
     
     print(f"📸 Processing: {image_path}")
     
-    # Step 1: Reka vision analysis
-    print("🤖 Analyzing with Reka...")
+    # Steps 1+2: Reka 2-stage analysis (image → text → JSON)
+    print("🤖 Analyzing with Reka (2-stage)...")
     vision_result = analyze_image(image_path)
     
     # Step 2: Prepare for vector store
@@ -80,7 +80,7 @@ if __name__ == "__main__":
         sys.exit(1)
     
     print("\n" + "="*60)
-    print("IMAGE → REKA → VECTOR STORE PIPELINE")
+    print("IMAGE → TEXT → JSON → VECTOR STORE PIPELINE")
     print("="*60 + "\n")
     
     result = process_image_to_memory(sys.argv[1])
