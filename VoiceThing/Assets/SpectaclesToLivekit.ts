@@ -14,6 +14,8 @@ export class WsAviStreamer extends BaseScriptComponent {
   private ws: WebSocket | null = null;
   private cameraTexture: Texture;
   private cameraTextureProvider: CameraTextureProvider;
+  private reconnectDelayMs: number = 1000;
+  private reconnectScheduled: boolean = false;
   
   // Audio playback
   private audioComponent: AudioComponent;
@@ -37,12 +39,14 @@ export class WsAviStreamer extends BaseScriptComponent {
     // 1) Open WebSocket using InternetModule
     try {
       this.ws = this.internetModule.createWebSocket(this.websocketUrl);
-      this.ws.binaryType = 'blob';
+      // Prefer ArrayBuffer for binary transport with Lens/InternetModule
+      this.ws.binaryType = 'arraybuffer';
       print("WebSocket object created");
       
       this.ws.onopen = (event: WebSocketEvent) => {
         print("✅ WebSocket CONNECTED!");
         this.wsConnected = true;
+        this.reconnectScheduled = false;
         if (this.statusText) {
           this.statusText.text = "🟢 CONNECTED";
         }
@@ -50,9 +54,13 @@ export class WsAviStreamer extends BaseScriptComponent {
       
       this.ws.onmessage = async (event: WebSocketMessageEvent) => {
         print("📨 Received message from server");
-        if (event.data instanceof Blob) {
-          const bytes = await event.data.bytes();
-          this.onInboundAudio(bytes);
+        // Support both ArrayBuffer and Blob to be safe across environments
+        const data: any = event.data;
+        if (data instanceof ArrayBuffer) {
+          this.onInboundAudio(new Uint8Array(data));
+        } else if (data instanceof Blob) {
+          const bytes = await data.bytes();
+          this.onInboundAudio(new Uint8Array(bytes));
         }
       };
       
@@ -62,6 +70,7 @@ export class WsAviStreamer extends BaseScriptComponent {
         if (this.statusText) {
           this.statusText.text = "🔴 DISCONNECTED";
         }
+        this.scheduleReconnect();
       };
       
       this.ws.onerror = (event: WebSocketEvent) => {
@@ -70,6 +79,7 @@ export class WsAviStreamer extends BaseScriptComponent {
         if (this.statusText) {
           this.statusText.text = "⚠️ ERROR";
         }
+        this.scheduleReconnect();
       };
     } catch (e) {
       print(`Failed to create WebSocket: ${e}`);
@@ -94,6 +104,20 @@ export class WsAviStreamer extends BaseScriptComponent {
     } catch(_) {}
     this.ws = null;
     this.wsConnected = false;
+  }
+
+  private scheduleReconnect() {
+    if (this.reconnectScheduled) {
+      return;
+    }
+    this.reconnectScheduled = true;
+    const retry = this.createEvent('DelayedCallbackEvent');
+    retry.bind(() => {
+      print(`Reconnecting WS after ${this.reconnectDelayMs}ms...`);
+      this.stop();
+      this.start();
+    });
+    retry.reset(this.reconnectDelayMs / 1000.0);
   }
   
   private setupCamera() {
@@ -280,7 +304,8 @@ export class WsAviStreamer extends BaseScriptComponent {
     
     try {
       print(`Sending to WebSocket (readyState: ${this.ws.readyState})...`);
-      this.ws.send(out);
+      // Send ArrayBuffer for best compatibility
+      this.ws.send(out.buffer);
       print("✅ Sent to WebSocket!");
     } catch (e) {
       print(`❌ WebSocket send error: ${e}`);
