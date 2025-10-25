@@ -48,6 +48,11 @@ class StoreMemory(BaseModel):
     session_id: Optional[str] = "default-session"
 
 
+class TextToJSON(BaseModel):
+    text_summary: str
+    session_id: Optional[str] = "default-session"
+
+
 @app.get("/")
 def read_root():
     return {"service": "memory-api", "status": "running"}
@@ -60,6 +65,39 @@ def get_memory_store():
         "total_items": len(memory_store),
         "items": memory_store
     }
+
+
+@app.post("/clear_storage")
+async def clear_storage():
+    """Clear all stored memories (in-memory and vector store)"""
+    try:
+        # Clear in-memory storage
+        initial_count = len(memory_store)
+        memory_store.clear()
+        
+        # Try to clear vector store
+        vector_cleared = False
+        try:
+            # Clear all collections in vector store
+            collections = ["frames_ephemeral_v1", "entities_stream_v1", "latest_entities_v1"]
+            for collection in collections:
+                response = await client.post(
+                    f"{VECTOR_STORE_URL}/clear_collection",
+                    json={"collection_name": collection},
+                    timeout=5.0
+                )
+            vector_cleared = True
+        except Exception as e:
+            print(f"[WARNING] Could not clear vector store: {e}")
+        
+        return {
+            "ok": True,
+            "message": "Storage cleared successfully",
+            "cleared_memory_items": initial_count,
+            "vector_store_cleared": vector_cleared
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/store")
@@ -173,6 +211,77 @@ async def store_memory(data: ImageUpload):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/store_text")
+async def store_text(data: TextToJSON):
+    """Convert text summary to JSON and store in vector database"""
+    try:
+        # Import vision processor
+        import sys
+        vision_path = os.path.join(os.path.dirname(__file__), '..', 'vision-processor')
+        if vision_path not in sys.path:
+            sys.path.insert(0, vision_path)
+        
+        from vision_reka import text_summary_to_json
+        
+        # Convert text to JSON
+        print(f"[DEBUG] Converting text to JSON: {data.text_summary[:100]}...")
+        json_result = text_summary_to_json(data.text_summary)
+        print(f"[DEBUG] JSON result: {json_result}")
+        
+        scene = json_result.get("scene_summary", "Scene captured")
+        objects = json_result.get("objects", [])
+        
+        # Store in memory (always works as fallback)
+        memory_entry = {
+            "session_id": data.session_id,
+            "timestamp": int(time.time()),
+            "scene": scene,
+            "objects": objects,
+            "text_summary": data.text_summary,
+            "full_result": json_result
+        }
+        memory_store.append(memory_entry)
+        print(f"[DEBUG] Stored in memory. Total items: {len(memory_store)}")
+        
+        # Try to store in vector database
+        storage_result = None
+        try:
+            response = await client.post(
+                f"{VECTOR_STORE_URL}/add_frame",
+                json={
+                    "tenant_id": "user_123",
+                    "device_id": "text_input",
+                    "session_id": data.session_id,
+                    "frame_ts": int(time.time()),
+                    "scene_summary": scene,
+                    "objects": objects
+                },
+                timeout=5.0
+            )
+            response.raise_for_status()
+            storage_result = response.json()
+            storage_result["mode"] = "vector_store"
+        except Exception as storage_error:
+            storage_result = {
+                "mode": "in_memory_only",
+                "warning": "Vector store unavailable, using in-memory fallback",
+                "stored_items": len(memory_store)
+            }
+        
+        return {
+            "ok": True,
+            "text_summary": data.text_summary,
+            "extracted_json": {
+                "scene": scene,
+                "objects": objects
+            },
+            "storage": storage_result
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/store_direct")
 async def store_direct(data: StoreMemory):
     """Store pre-analyzed data directly (no image processing)"""
@@ -219,201 +328,148 @@ async def find_object(object_name: str):
 @app.get("/search")
 async def search_memories(query: str, session_id: Optional[str] = None, limit: int = 5):
     """Search memories and return natural language answer"""
-    try:
-        response = await client.post(
-            f"{VECTOR_STORE_URL}/search_semantic",
-            json={
-                "tenant_id": "user_123",
-                "query_text": query,
-                "collections": ["entities_stream_v1", "user_notes_v1", "frames_ephemeral_v1"],
-                "n_results": limit
-            },
-            timeout=5.0
-        )
-        response.raise_for_status()
-        result = response.json()
-        # TODO: Generate natural language from vector store results
-        return {
-            "ok": True,
-            "answer": "Vector store integration pending",
-            "mode": "vector_store"
-        }
-    except httpx.ConnectError:
-        # Fallback to in-memory search with natural language response
-        query_lower = query.lower()
+    
+    # Always use in-memory search with natural language generation
+    # This works whether vector store is available or not
+    query_lower = query.lower()
+    
+    # Extract keywords from natural language query
+    stop_words = {'where', 'is', 'my', 'the', 'a', 'an', 'what', 'did', 'i', 'was', 'were', 'are', 'have', 'has', 'do', 'does', 's'}
+    keywords = [word for word in query_lower.split() if word not in stop_words and len(word) > 2]
+    
+    # If no keywords extracted, use full query
+    if not keywords:
+        keywords = [query_lower]
+    
+    print(f"[DEBUG] Query: '{query}' -> Keywords: {keywords}")
+    
+    results = []
+    
+    for entry in memory_store:
+        # Semantic keyword matching
+        score = 0
+        matched_objects = []
         
-        # Extract keywords from natural language query
-        # Remove common words and extract meaningful terms
-        stop_words = {'where', 'is', 'my', 'the', 'a', 'an', 'what', 'did', 'i', 'was', 'were', 'are', 'have', 'has', 'do', 'does'}
-        keywords = [word for word in query_lower.split() if word not in stop_words and len(word) > 2]
-        
-        # If no keywords extracted, use full query
-        if not keywords:
-            keywords = [query_lower]
-        
-        print(f"[DEBUG] Query: '{query}' -> Keywords: {keywords}")
-        
-        results = []
-        
-        for entry in memory_store:
-            # Semantic keyword matching
-            score = 0
-            matched_objects = []
+        # Check each keyword
+        for keyword in keywords:
+            # Match in scene description
+            if keyword in entry["scene"].lower():
+                score += 10
             
-            # Check each keyword
-            for keyword in keywords:
-                # Match in scene description
-                if keyword in entry["scene"].lower():
-                    score += 10
-                
-                # Match in objects
-                for obj in entry["objects"]:
-                    obj_label = obj.get("label", obj.get("name", ""))
-                    if keyword in obj_label.lower() or obj_label.lower() in keyword:
-                        score += 20
-                        if obj_label not in matched_objects:
-                            matched_objects.append(obj_label)
-                    
-                    # Match in attributes
-                    for attr in obj.get("attributes", []):
-                        if keyword in attr.lower():
-                            score += 5
+            # Match in text summary if available
+            if "text_summary" in entry and keyword in entry["text_summary"].lower():
+                score += 5
             
-            if score > 0:
-                results.append({
-                    "entry": entry,
-                    "score": score,
-                    "matched_objects": matched_objects
-                })
+            # Match in objects
+            for obj in entry["objects"]:
+                obj_label = obj.get("label", obj.get("name", ""))
+                obj_color = obj.get("color", "")
+                
+                # Match object name
+                if keyword in obj_label.lower() or obj_label.lower() in keyword:
+                    score += 20
+                    if obj_label not in matched_objects:
+                        matched_objects.append(obj_label)
+                
+                # Match color
+                if obj_color and keyword in obj_color.lower():
+                    score += 15
+                    if obj_label not in matched_objects:
+                        matched_objects.append(obj_label)
         
-        # Sort by score and get best match
-        results = sorted(results, key=lambda x: x["score"], reverse=True)[:limit]
-        
-        # Generate natural language answer
-        if not results:
-            # If no keyword matches, show most recent memory for general queries
-            general_queries = ['everything', 'anything', 'recent', 'latest', 'last', 'see', 'saw', 'seen', 'show']
-            is_general = any(word in query_lower for word in general_queries) or not keywords
-            
-            if is_general and memory_store:
-                # Show most recent memory
-                recent = max(memory_store, key=lambda x: x["timestamp"])
-                obj_list = [o.get("label", o.get("name", "")) for o in recent["objects"]]
-                
-                seconds_ago = int(time.time()) - recent["timestamp"]
-                if seconds_ago < 60:
-                    time_str = "just now"
-                else:
-                    mins = seconds_ago // 60
-                    time_str = f"{mins} minute{'s' if mins != 1 else ''} ago"
-                
-                if len(obj_list) > 2:
-                    items = f"{obj_list[0]}, {obj_list[1]}, and {obj_list[2]}"
-                elif len(obj_list) == 2:
-                    items = f"{obj_list[0]} and {obj_list[1]}"
-                else:
-                    items = obj_list[0] if obj_list else "items"
-                
-                answer = f"Most recently, {time_str}, I saw {items}: {recent['scene'].lower()}"
+        if score > 0:
+            results.append({
+                "entry": entry,
+                "score": score,
+                "matched_objects": matched_objects
+            })
+    
+    # Sort by score and get best match
+    results = sorted(results, key=lambda x: x["score"], reverse=True)[:limit]
+    
+    # Generate natural language answer
+    if not results:
+        if memory_store:
+            recent = max(memory_store, key=lambda x: x["timestamp"])
+            obj_list = [o.get("label", "") for o in recent["objects"]]
+            if obj_list:
+                answer = f"I couldn't find anything about '{query}', but I recently saw: {', '.join(obj_list)}"
             else:
                 answer = f"I couldn't find anything about '{query}' in your memories."
         else:
-            top = results[0]
-            entry = top["entry"]
-            
-            # Calculate time ago
-            seconds_ago = int(time.time()) - entry["timestamp"]
-            if seconds_ago < 60:
-                time_str = "just now"
-            elif seconds_ago < 3600:
-                mins = seconds_ago // 60
-                time_str = f"{mins} minute{'s' if mins != 1 else ''} ago"
-            elif seconds_ago < 86400:
-                hours = seconds_ago // 3600
-                time_str = f"{hours} hour{'s' if hours != 1 else ''} ago"
-            else:
-                days = seconds_ago // 86400
-                time_str = f"{days} day{'s' if days != 1 else ''} ago"
-            
-            # Build contextual answer
-            if top["matched_objects"]:
-                # Direct object match - check what user is asking about
-                obj_name = top["matched_objects"][0]
-                
-                # Find the object details
-                obj_details = None
-                for obj in entry["objects"]:
-                    if obj.get("label", obj.get("name", "")) == obj_name:
-                        obj_details = obj
-                        break
-                
-                # Check if query is about specific attributes
-                query_intent = None
-                if "color" in query_lower or "colour" in query_lower:
-                    query_intent = "color"
-                elif "where" in query_lower or "location" in query_lower:
-                    query_intent = "location"
-                
-                # Build answer based on intent
-                if query_intent == "color" and obj_details:
-                    color = obj_details.get("color")
-                    if color:
-                        answer = f"Your {obj_name} was {color}."
-                    else:
-                        answer = f"I saw your {obj_name}, but I couldn't determine its color."
-                elif query_intent == "location" or "where" in query_lower:
-                    other_objs = [o.get("label", o.get("name", "")) 
-                                 for o in entry["objects"] 
-                                 if o.get("label", o.get("name", "")) != obj_name]
-                    
-                    location = obj_details.get("rel_pos", "") if obj_details else ""
-                    
-                    if location and location != "unknown":
-                        answer = f"Your {obj_name} was {location}, {time_str}."
-                    elif other_objs:
-                        context = f"near {other_objs[0]}"
-                        if len(other_objs) > 1:
-                            context += f" and {other_objs[1]}"
-                        answer = f"Your {obj_name} was {context}, {time_str}."
-                    else:
-                        answer = f"I saw your {obj_name} {time_str}."
-                else:
-                    # General query - provide comprehensive info
-                    details = []
-                    if obj_details:
-                        if obj_details.get("color"):
-                            details.append(obj_details["color"])
-                        if obj_details.get("rel_pos") and obj_details["rel_pos"] != "unknown":
-                            details.append(obj_details["rel_pos"])
-                    
-                    if details:
-                        detail_str = ", ".join(details)
-                        answer = f"I saw your {obj_name} ({detail_str}) {time_str}."
-                    else:
-                        answer = f"I saw your {obj_name} {time_str}."
-            else:
-                # Scene match - general query
-                obj_list = [o.get("label", o.get("name", "")) for o in entry["objects"]]
-                if len(obj_list) > 2:
-                    items = f"{obj_list[0]}, {obj_list[1]}, and {obj_list[2]}"
-                elif len(obj_list) == 2:
-                    items = f"{obj_list[0]} and {obj_list[1]}"
-                elif len(obj_list) == 1:
-                    items = obj_list[0]
-                else:
-                    items = "items"
-                
-                answer = f"{time_str.capitalize()}, I saw {items} - {entry['scene'].lower()}"
+            answer = "No memories stored yet. Add some text descriptions first!"
+    else:
+        top = results[0]
+        entry = top["entry"]
         
-        return {
-            "ok": True,
-            "answer": answer,
-            "query": query,
-            "mode": "in_memory_fallback",
-            "raw_results": results if results else None
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
+        # Calculate time ago
+        seconds_ago = int(time.time()) - entry["timestamp"]
+        if seconds_ago < 60:
+            time_str = "just now"
+        elif seconds_ago < 3600:
+            mins = seconds_ago // 60
+            time_str = f"{mins} minute{'s' if mins != 1 else ''} ago"
+        else:
+            hours = seconds_ago // 3600
+            time_str = f"{hours} hour{'s' if hours != 1 else ''} ago"
+        
+        # Build contextual answer based on query intent
+        if top["matched_objects"]:
+            obj_name = top["matched_objects"][0]
+            
+            # Find the object details
+            obj_details = None
+            for obj in entry["objects"]:
+                if obj.get("label", obj.get("name", "")) == obj_name:
+                    obj_details = obj
+                    break
+            
+            # Check query intent
+            asking_color = any(word in query_lower for word in ["color", "colour"])
+            asking_where = any(word in query_lower for word in ["where", "location"])
+            
+            if asking_color and obj_details:
+                color = obj_details.get("color")
+                if color:
+                    answer = f"The {obj_name} was {color}."
+                else:
+                    answer = f"I saw a {obj_name}, but I couldn't determine its color."
+            elif asking_where and obj_details:
+                location = obj_details.get("rel_pos", "")
+                if location and location != "unknown":
+                    answer = f"The {obj_name} was {location}, seen {time_str}."
+                else:
+                    answer = f"I saw a {obj_name} {time_str}."
+            else:
+                # General query - provide comprehensive info
+                details = []
+                if obj_details:
+                    if obj_details.get("color"):
+                        details.append(obj_details["color"])
+                    if obj_details.get("rel_pos") and obj_details["rel_pos"] != "unknown":
+                        details.append(obj_details["rel_pos"])
+                
+                if details:
+                    detail_str = ", ".join(details)
+                    answer = f"I saw a {obj_name} ({detail_str}) {time_str}."
+                else:
+                    answer = f"I saw a {obj_name} {time_str}."
+        else:
+            # Scene match
+            obj_list = [o.get("label", "") for o in entry["objects"]]
+            if obj_list:
+                items = ", ".join(obj_list[:3])
+                answer = f"{time_str.capitalize()}, I saw: {items}"
+            else:
+                answer = f"I saw something {time_str}: {entry['scene']}"
+    
+    return {
+        "ok": True,
+        "answer": answer,
+        "query": query,
+        "mode": "in_memory",
+        "matches": len(results)
+    }
 
 
 @app.on_event("startup")
