@@ -2,3 +2,4 @@ reka-api>=3.2.0
 pillow>=11.0.0
 requests>=2.32.0
 python-dotenv>=1.0.0
+opencv-python>=4.8.0

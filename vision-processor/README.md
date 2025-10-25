@@ -31,6 +31,8 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+**Note:** If you get "No space left on device" error when installing opencv-python, free up disk space first or install on another machine.
+
 ### 2. Set API key
 
 ```bash
@@ -112,10 +114,37 @@ Example stored data:
 
 ## Integration with AR Glasses
 
+### Automatic Capture (30-second intervals + triggers)
+
+```python
+from capture_scheduler import CaptureScheduler
+
+def capture_from_glasses() -> str:
+    """Your camera capture function"""
+    image_bytes = glasses_camera.capture_frame()
+    path = f"/tmp/capture_{int(time.time())}.jpg"
+    with open(path, "wb") as f:
+        f.write(image_bytes)
+    return path
+
+# Create and start scheduler
+scheduler = CaptureScheduler(
+    capture_func=capture_from_glasses,
+    interval=30,  # Every 30 seconds
+    min_trigger_gap=3  # Debounce triggers
+)
+scheduler.start()
+
+# Trigger on demand (user button, motion, etc.)
+scheduler.trigger_capture(reason="user_button")
+```
+
+### Manual Single Capture
+
 ```python
 from integration_reka import process_image_to_memory
 
-# Every 5 seconds or on trigger
+# Process single image
 def on_frame_capture(image_bytes):
     # Save image temporarily
     with open("/tmp/frame.jpg", "wb") as f:
@@ -142,11 +171,78 @@ curl -X POST http://localhost:8001/search_semantic \
   -d '{"tenant_id":"user_123","query_text":"red mug","n_results":5}'
 ```
 
+## Live Camera Stream
+
+**NEW:** The system now captures **live camera feed** instead of static test images!
+
+### Test Camera Stream
+
+```bash
+python camera_stream.py
+```
+
+Commands:
+- `c` - Capture frame from camera
+- `i` - Show camera info  
+- `q` - Quit
+
+Each capture is saved to `/tmp/captures/capture_<timestamp>.jpg`
+
+### Camera Configuration
+
+Edit `.env` file:
+```bash
+CAMERA_ID=0                    # 0 = default webcam, 1 = external camera
+CAPTURE_SAVE_DIR=/tmp/captures # Where to save frames
+```
+
+See `CAMERA_SETUP.md` for detailed camera configuration and troubleshooting.
+
+## Capture Scheduler
+
+The `capture_scheduler.py` module provides smart timing control:
+
+### Features
+
+- ⏰ **Automatic capture** every 30 seconds (configurable)
+- 🎯 **Trigger-based capture** for important moments
+- 🛡️ **Debouncing** prevents rapid-fire captures (3s minimum gap)
+- 🧵 **Thread-safe** for concurrent triggers
+- 📊 **Statistics tracking** for monitoring
+
+### Configuration
+
+Edit `.env` file:
+```bash
+CAPTURE_INTERVAL_SECONDS=30   # Automatic interval
+MIN_TRIGGER_GAP_SECONDS=3     # Minimum time between captures
+```
+
+### Test the Scheduler
+
+```bash
+# Live mode (captures from camera)
+python capture_scheduler.py
+
+# Test mode (uses static test image)
+python capture_scheduler.py --test
+```
+
+Commands:
+- `t` - Trigger manual capture (gets LIVE frame from camera)
+- `s` - Show statistics
+- `q` - Quit
+
+**Each trigger now captures whatever is in front of the camera at that moment!**
+
 ## Files
 
 - `vision_reka.py` - Reka vision API integration
 - `integration_reka.py` - Complete pipeline (vision + storage)
+- `capture_scheduler.py` - Smart capture timing (30s + triggers)
+- `camera_stream.py` - **NEW:** Live camera capture (OpenCV-based)
 - `requirements.txt` - Python dependencies
+- `CAMERA_SETUP.md` - **NEW:** Camera setup and troubleshooting guide
 
 ## API
 
