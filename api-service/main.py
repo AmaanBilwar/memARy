@@ -3,13 +3,24 @@ Simple FastAPI service to store and fetch from vector database
 """
 from typing import Union
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import time
+import os
 
 app = FastAPI()
 
-# Vector store URL
-VECTOR_STORE_URL = "http://localhost:8001"
+# CORS - Allow requests from any domain
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify your domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Vector store URL - use env var for Heroku
+VECTOR_STORE_URL = os.getenv("VECTOR_STORE_URL", "http://localhost:8001")
 
 # Async HTTP client
 client = httpx.AsyncClient(timeout=30.0)
@@ -82,7 +93,26 @@ async def search_memories(q: str, limit: int = 5):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.on_event("startup")
+async def startup():
+    print("✓ Memory API starting...")
+    print(f"✓ Vector store: {VECTOR_STORE_URL}")
+
 @app.on_event("shutdown")
 async def shutdown():
     await client.aclose()
+    print("✓ Memory API shutdown complete")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 8000))  # Heroku sets PORT env var
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=port,
+        reload=False,  # Disable reload for production
+        workers=1,      # Single worker (increase for high traffic)
+        log_level="info"
+    )
 
