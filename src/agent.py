@@ -1,17 +1,26 @@
+import asyncio
+import base64
 import logging
+from typing import AsyncIterable
 
 from dotenv import load_dotenv
 from livekit.agents import (
     Agent,
     AgentSession,
+    ChatContext,
+    ChatMessage,
+    ErrorEvent,
     JobContext,
     JobProcess,
     MetricsCollectedEvent,
     RoomInputOptions,
     WorkerOptions,
     cli,
+    get_job_context,
     metrics,
 )
+from livekit.agents.llm import ImageContent
+from livekit import rtc
 from livekit.plugins import noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
@@ -22,12 +31,155 @@ load_dotenv(".env.local")
 
 class Assistant(Agent):
     def __init__(self) -> None:
+        self._tasks = []  # Prevent garbage collection of running tasks
+        self._latest_frame = None
+        self._video_stream = None
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
+            instructions="""You are a helpful voice AI assistant with full vision capabilities. You can see and understand visual content including:
+            - Live video from the user's camera
+            - Images uploaded by the user
+            - Screen sharing content
+            - Any visual content shared during the conversation
+            
+            IMPORTANT: You DO have the ability to see visual content. When users ask you to look at something, describe what you see, or analyze visual content, you should do so confidently. You are not restricted by privacy concerns when the user explicitly shares visual content with you.
+            
+            You eagerly assist users with their questions by providing information from your extensive knowledge and visual understanding.
             Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
             You are curious, friendly, and have a sense of humor.""",
         )
+
+    async def on_enter(self):
+        """Set up image and video handling when the agent joins the room."""
+        try:
+            room = get_job_context().room
+            
+            # Register byte stream handler for receiving images from frontend
+            def _image_received_handler(reader, participant_identity):
+                task = asyncio.create_task(
+                    self._image_received(reader, participant_identity)
+                )
+                self._tasks.append(task)
+                task.add_done_callback(lambda t: self._tasks.remove(t))
+            
+            room.register_byte_stream_handler("images", _image_received_handler)
+            
+            # Set up video frame sampling
+            self._setup_video_stream()
+        except RuntimeError:
+            # No job context available (e.g., during testing)
+            logger.debug("No job context available, skipping image/video setup")
+    
+    async def on_user_turn_completed(self, turn_ctx: ChatContext, new_message: ChatMessage) -> None:
+        """Add the latest video frame to the user's message if available."""
+        if self._latest_frame:
+            logger.info("Adding video frame to user message")
+            new_message.content.append(ImageContent(image=self._latest_frame))
+            self._latest_frame = None
+        else:
+            logger.debug("No video frame available for this turn")
+    
+    async def transcription_node(self, text: AsyncIterable[str], model_settings=None) -> AsyncIterable[str]:
+        """Clean up text before TTS to prevent empty/punctuation-only errors."""
+        import re
+        
+        async for delta in text:
+            # Skip empty deltas
+            if not delta:
+                continue
+                
+            # Clean up the text
+            cleaned_delta = delta.strip()
+            
+            # Only replace the delta if it's truly problematic
+            if not cleaned_delta:
+                # Skip empty deltas
+                continue
+            elif re.match(r'^[^\w\s]*$', cleaned_delta) and len(cleaned_delta) > 1:
+                # Only flag as problematic if it's multiple punctuation characters
+                logger.warning(f"Text contains only punctuation: '{cleaned_delta}'")
+                continue  # Skip this delta instead of replacing
+            else:
+                # Clean up excessive punctuation but keep normal punctuation
+                cleaned_delta = re.sub(r'[.!?]{3,}', '...', cleaned_delta)
+                yield cleaned_delta
+    
+    async def on_error(self, event: ErrorEvent) -> None:
+        """Handle errors that occur during the session."""
+        logger.error(f"Error occurred: {event.error}, recoverable: {event.error.recoverable}, source: {event.source}")
+        
+        # If it's a TTS error and not recoverable, try to handle it gracefully
+        if event.source == "TTS" and not event.error.recoverable:
+            logger.warning("TTS error occurred, attempting to recover")
+            # The session will handle the recovery automatically
+        elif not event.error.recoverable:
+            logger.error(f"Unrecoverable error in {event.source}: {event.error}")
+    
+    async def _image_received(self, reader, participant_identity):
+        """Handle images uploaded from the frontend."""
+        image_bytes = bytes()
+        async for chunk in reader:
+            image_bytes += chunk
+
+        chat_ctx = self.chat_ctx.copy()
+
+        # Encode the image to base64 and add it to the chat context
+        chat_ctx.add_message(
+            role="user",
+            content=[
+                ImageContent(
+                    image=f"data:image/png;base64,{base64.b64encode(image_bytes).decode('utf-8')}"
+                )
+            ],
+        )
+        await self.update_chat_ctx(chat_ctx)
+    
+    def _setup_video_stream(self):
+        """Set up video frame sampling from user's video track."""
+        try:
+            room = get_job_context().room
+            
+            # Find the first video track (if any) from the remote participant
+            remote_participants = list(room.remote_participants.values())
+            if remote_participants:
+                remote_participant = remote_participants[0]
+                video_tracks = [
+                    publication.track 
+                    for publication in list(remote_participant.track_publications.values()) 
+                    if publication.track and publication.track.kind == rtc.TrackKind.KIND_VIDEO
+                ]
+                if video_tracks:
+                    self._create_video_stream(video_tracks[0])
+            
+            # Watch for new video tracks not yet published
+            @room.on("track_subscribed")
+            def on_track_subscribed(track: rtc.Track, publication: rtc.RemoteTrackPublication, participant: rtc.RemoteParticipant):
+                if track.kind == rtc.TrackKind.KIND_VIDEO:
+                    self._create_video_stream(track)
+        except RuntimeError:
+            # No job context available (e.g., during testing)
+            logger.debug("No job context available, skipping video stream setup")
+    
+    def _create_video_stream(self, track: rtc.Track):
+        """Create a video stream to buffer the latest frame from the user's track."""
+        logger.info(f"Creating video stream for track: {track.sid}")
+        
+        # Close any existing stream (we only want one at a time)
+        if self._video_stream is not None:
+            self._video_stream.close()
+
+        # Create a new stream to receive frames    
+        self._video_stream = rtc.VideoStream(track)
+        async def read_stream():
+            logger.info("Starting video stream reading")
+            async for event in self._video_stream:
+                # Store the latest frame for use later
+                self._latest_frame = event.frame
+                logger.debug("Received video frame")
+        
+        # Store the async task
+        task = asyncio.create_task(read_stream())
+        task.add_done_callback(lambda t: self._tasks.remove(t))
+        self._tasks.append(task)
 
     # To add tools, use the @function_tool decorator.
     # Here's an example that adds a simple weather tool.
