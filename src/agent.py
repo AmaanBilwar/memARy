@@ -22,8 +22,12 @@ from livekit.agents import (
 from livekit.agents.llm import ImageContent
 from livekit import rtc
 from livekit.plugins import noise_cancellation, silero
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
-from . import ws_ingest
+# # from livekit.plugins.turn_detector.multilingual import MultilingualModel  # Removed - requires auth
+try:
+    from . import ws_ingest
+except ImportError:
+    # Handle case when running script directly
+    import ws_ingest
 
 logger = logging.getLogger("agent")
 
@@ -237,7 +241,7 @@ async def entrypoint(ctx: JobContext):
         tts="cartesia/sonic-2:9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
         # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
         # See more at https://docs.livekit.io/agents/build/turns
-        # turn_detection=MultilingualModel(),  # Temporarily disabled due to authentication issue
+        # turn_detection=MultilingualModel(),  # Disabled - requires HuggingFace auth
         vad=ctx.proc.userdata["vad"],
         # allow the LLM to generate a response while waiting for the end of turn
         # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
