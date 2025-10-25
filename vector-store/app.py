@@ -482,6 +482,37 @@ async def compact(req: CompactRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.post("/clear_collection")
+async def clear_collection(req: dict):
+    """Clear all documents from a collection"""
+    try:
+        collection_name = req.get("collection_name")
+        if not collection_name:
+            raise HTTPException(status_code=400, detail="collection_name required")
+        
+        collection = get_or_create_collection(collection_name)
+        
+        # Get all IDs in the collection
+        all_items = collection.get()
+        if all_items and all_items.get("ids"):
+            count = len(all_items["ids"])
+            collection.delete(ids=all_items["ids"])
+            return {
+                "ok": True,
+                "collection": collection_name,
+                "deleted_count": count
+            }
+        else:
+            return {
+                "ok": True,
+                "collection": collection_name,
+                "deleted_count": 0,
+                "message": "Collection was already empty"
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/healthz")
 async def health():
     """Health check"""
