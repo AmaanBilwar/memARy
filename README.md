@@ -10,6 +10,7 @@ Remembar is an AI-powered memory system that lets you store observations as natu
 - **Natural Language Storage**: Just describe what you see - "there's a yellow key on the table"
 - **Conversational Search**: Ask naturally - "where are my keys?" or "what color is the car?"
 - **AI-Powered Understanding**: Uses Reka AI to extract structured data from descriptions
+- **Cloud-Native Storage**: ChromaDB Cloud integration for true persistence across deployments
 - **Vector Search**: Semantic search powered by ChromaDB for intelligent matching
 
 ### 🔌 MCP Integration (NEW!)
@@ -24,11 +25,26 @@ Remembar is an AI-powered memory system that lets you store observations as natu
 - **🔗 Object Relationships**: Automatically learns which items are seen together
 - **📈 Statistics Dashboard**: Analytics on your memories and patterns
 - **🎴 Flashcards**: Memory reinforcement with intelligent Q&A generation
-- **💾 Persistent Storage**: All data saved locally with ChromaDB
+- **☁️ Cloud Persistence**: ChromaDB Cloud integration for data that survives any deployment
+- **💾 Local Fallback**: Automatic fallback to local storage if cloud is unavailable
 
 ## 🚀 Quick Start
 
-### Option 1: MCP Integration (Recommended)
+### Option 1: Cloud Deployment (Share with Others) 🌐
+
+Deploy to Railway and let others access your Remembar instance:
+
+```bash
+railway login --browserless
+railway init
+railway variables set REKA_API_KEY=your_key
+railway up
+railway domain  # Get your public URL
+```
+
+**Full guide**: **[DEPLOY_QUICK_START.md](./DEPLOY_QUICK_START.md)** | **[RAILWAY_DEPLOY.md](./RAILWAY_DEPLOY.md)**
+
+### Option 2: MCP Integration (Local)
 
 Use Remembar directly through Claude Desktop or other AI assistants:
 
@@ -39,7 +55,7 @@ Use Remembar directly through Claude Desktop or other AI assistants:
 
 Then follow the setup guide: **[MCP_SETUP.md](./MCP_SETUP.md)**
 
-### Option 2: Web Interface
+### Option 3: Web Interface
 
 Use the browser-based interface:
 
@@ -51,7 +67,7 @@ Use the browser-based interface:
 open web-test/index.html
 ```
 
-### Option 3: REST API
+### Option 4: REST API
 
 Direct API access:
 
@@ -102,8 +118,14 @@ curl "http://localhost:8000/search?query=where+is+the+key"
 
 ## 📖 Documentation
 
+### Setup & Deployment
+- **[Deploy Quick Start](./DEPLOY_QUICK_START.md)** - ⚡ Fast Railway deployment
+- **[Railway Deploy Guide](./RAILWAY_DEPLOY.md)** - Complete Railway deployment
+- **[ChromaDB Cloud Setup](./CHROMADB_CLOUD_SETUP.md)** - ☁️ Cloud storage configuration
 - **[MCP Setup Guide](./MCP_SETUP.md)** - Connect to Claude Desktop
-- **[Startup Guide](./STARTUP_GUIDE.md)** - Detailed startup instructions
+- **[Startup Guide](./STARTUP_GUIDE.md)** - Local startup instructions
+
+### Technical Guides
 - **[Architecture](./ARCHITECTURE.md)** - System design and components
 - **[API Reference](./API_QUICK_REFERENCE.md)** - REST API endpoints
 - **[Pipeline Update](./PIPELINE_UPDATE.md)** - Text-to-JSON pipeline details
@@ -182,7 +204,7 @@ print(response.json()['answer'])
 
 - **Backend**: FastAPI (Python)
 - **AI Processing**: Reka AI (Vision + Text Models)
-- **Vector Store**: ChromaDB
+- **Vector Store**: ChromaDB Cloud + Local Fallback
 - **MCP Server**: Model Context Protocol SDK
 - **Frontend**: HTML/CSS/JavaScript (Vanilla)
 

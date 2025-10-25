@@ -1,0 +1,19 @@
+[build]
+builder = "nixpacks"
+buildCommand = "cd api-service && pip install -r requirements.txt"
+
+[deploy]
+startCommand = "cd api-service && uvicorn main:app --host 0.0.0.0 --port $PORT"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[env]
+# These will be set via Railway dashboard or CLI
+# REKA_API_KEY = "set via: railway variables set REKA_API_KEY=your_key"
+
+# ChromaDB Cloud Configuration (recommended for production)
+# USE_CHROMA_CLOUD = "true"
+# CHROMA_API_KEY = "set via: railway variables set CHROMA_API_KEY=your_key"
+# CHROMA_TENANT = "set via: railway variables set CHROMA_TENANT=your_tenant_id"
+# CHROMA_DATABASE = "set via: railway variables set CHROMA_DATABASE=remembar"
+

@@ -1,4 +1,4 @@
-chromadb==0.5.*
+chromadb>=0.5.5
 fastapi==0.115.*
 uvicorn[standard]==0.30.*
 pydantic==2.*
