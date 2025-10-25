@@ -81,7 +81,10 @@ def get_memory_store():
 
 @app.get("/memories")
 def get_all_memories(session_id: Optional[str] = None, limit: int = 100):
-    """Get all memories, optionally filtered by session, sorted by timestamp (newest first)"""
+    """
+    Get all memories with entity IDs for each object.
+    Now shows item-based IDs: tenant:ITEM_NAME:session:timestamp
+    """
     # Filter by session if specified
     if session_id:
         filtered = [m for m in memory_store if m.get("session_id") == session_id]
@@ -94,10 +97,35 @@ def get_all_memories(session_id: Optional[str] = None, limit: int = 100):
     # Limit results
     limited = sorted_memories[:limit]
     
+    # Add entity IDs to each object
+    enhanced_memories = []
+    for memory in limited:
+        memory_copy = memory.copy()
+        
+        # Generate entity IDs for each object (item-name based format)
+        if "objects" in memory_copy:
+            enhanced_objects = []
+            for obj in memory_copy["objects"]:
+                obj_copy = obj.copy()
+                item_name = obj.get("label", "unknown")
+                session = memory_copy.get("session_id", "default")
+                timestamp = memory_copy.get("timestamp", int(time.time()))
+                
+                # New format: tenant:ITEM_NAME:session:timestamp
+                obj_copy["entity_id"] = f"user_123:{item_name}:{session}:{timestamp}"
+                enhanced_objects.append(obj_copy)
+            
+            memory_copy["objects"] = enhanced_objects
+        
+        # Add frame ID for reference
+        memory_copy["frame_id"] = f"user_123:{memory_copy.get('session_id', 'default')}:{memory_copy.get('timestamp', 0)}"
+        
+        enhanced_memories.append(memory_copy)
+    
     return {
         "ok": True,
-        "total": len(limited),
-        "memories": limited
+        "total": len(enhanced_memories),
+        "memories": enhanced_memories
     }
 
 
@@ -385,6 +413,52 @@ async def find_object(object_name: str):
         
         return result
     except httpx.HTTPError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/item/{item_name}")
+async def query_item_history(item_name: str, limit: int = 10):
+    """
+    Get all mentions/history of a specific item by name.
+    Uses new ID format: tenant:label:session:timestamp
+    """
+    try:
+        # First try vector store
+        try:
+            response = await client.get(
+                f"{VECTOR_STORE_URL}/query_by_item/{item_name}",
+                params={"tenant_id": "user_123", "limit": limit},
+                timeout=5.0
+            )
+            response.raise_for_status()
+            return response.json()
+        except:
+            pass
+        
+        # Fallback to in-memory search
+        matches = []
+        for entry in memory_store:
+            for obj in entry.get("objects", []):
+                obj_label = obj.get("label", obj.get("name", "")).lower()
+                if obj_label == item_name.lower():
+                    matches.append({
+                        "timestamp": entry.get("timestamp"),
+                        "session": entry.get("session_id"),
+                        "scene": entry.get("scene"),
+                        "object": obj
+                    })
+        
+        matches.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
+        
+        return {
+            "ok": True,
+            "item_name": item_name,
+            "total_mentions": len(matches),
+            "results": matches[:limit],
+            "mode": "in_memory_fallback"
+        }
+        
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -43,11 +43,13 @@ def _id_frame(tenant: str, session: str, ts: int) -> str:
     return f"{tenant}:{session}:{ts}"
 
 def _id_entity(tenant: str, session: str, ts: int, label: str, idx: int) -> str:
-    """Entity ID"""
-    return f"{tenant}:{session}:{ts}:{label}#{idx}"
+    """Entity ID - using item name as primary key for easy querying"""
+    # Format: tenant:label:session:timestamp
+    # This allows querying by label easily
+    return f"{tenant}:{label}:{session}:{ts}"
 
 def _id_latest(tenant: str, canonical_key: str) -> str:
-    """Latest entity ID"""
+    """Latest entity ID - using item name as key"""
     return f"{tenant}:{canonical_key}"
 
 def _id_note(tenant: str, note_id: str) -> str:
@@ -509,6 +511,50 @@ async def clear_collection(req: dict):
                 "deleted_count": 0,
                 "message": "Collection was already empty"
             }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/query_by_item/{item_name}")
+async def query_by_item(item_name: str, tenant_id: str = "user_123", limit: int = 10):
+    """
+    Query all mentions of a specific item by name.
+    New ID format makes this efficient: tenant:label:session:timestamp
+    """
+    try:
+        entities = get_or_create_collection(COLL_ENTITIES)
+        
+        # Query by metadata filter on obj_label
+        results = entities.get(
+            where={
+                "$and": [
+                    {"tenant_id": tenant_id},
+                    {"obj_label": item_name}
+                ]
+            },
+            limit=limit,
+            include=["documents", "metadatas"]
+        )
+        
+        items = []
+        for i in range(len(results["ids"])):
+            items.append({
+                "id": results["ids"][i],
+                "document": results["documents"][i],
+                "metadata": results["metadatas"][i],
+                "timestamp": results["metadatas"][i].get("frame_ts")
+            })
+        
+        # Sort by timestamp (newest first)
+        items.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
+        
+        return {
+            "ok": True,
+            "item_name": item_name,
+            "total_mentions": len(items),
+            "results": items
+        }
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
