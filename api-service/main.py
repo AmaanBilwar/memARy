@@ -67,6 +67,28 @@ def get_memory_store():
     }
 
 
+@app.get("/memories")
+def get_all_memories(session_id: Optional[str] = None, limit: int = 100):
+    """Get all memories, optionally filtered by session, sorted by timestamp (newest first)"""
+    # Filter by session if specified
+    if session_id:
+        filtered = [m for m in memory_store if m.get("session_id") == session_id]
+    else:
+        filtered = memory_store
+    
+    # Sort by timestamp (newest first)
+    sorted_memories = sorted(filtered, key=lambda x: x.get("timestamp", 0), reverse=True)
+    
+    # Limit results
+    limited = sorted_memories[:limit]
+    
+    return {
+        "ok": True,
+        "total": len(limited),
+        "memories": limited
+    }
+
+
 @app.post("/clear_storage")
 async def clear_storage():
     """Clear all stored memories (in-memory and vector store)"""
