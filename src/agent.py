@@ -23,6 +23,7 @@ from livekit.agents.llm import ImageContent
 from livekit import rtc
 from livekit.plugins import noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from . import ws_ingest
 
 logger = logging.getLogger("agent")
 
@@ -65,6 +66,10 @@ class Assistant(Agent):
             
             # Set up video frame sampling
             self._setup_video_stream()
+
+            # Start WS ingest server for Spectacles frames
+            # Default bind 0.0.0.0:8765; adjust via env in future if needed
+            await ws_ingest.start(room)
         except RuntimeError:
             # No job context available (e.g., during testing)
             logger.debug("No job context available, skipping image/video setup")
@@ -78,6 +83,15 @@ class Assistant(Agent):
         else:
             logger.debug("No video frame available for this turn")
     
+    async def tts_node(self, text: AsyncIterable[str], model_settings=None) -> AsyncIterable[rtc.AudioFrame]:
+        async for frame in Agent.default.tts_node(self, text, model_settings):
+            # Mirror TTS audio back to Spectacles over WS as PCM frames
+            try:
+                await ws_ingest.broadcast_tts_frame(frame)
+            except Exception:
+                logger.debug("Failed to broadcast TTS frame over WS", exc_info=True)
+            yield frame
+
     async def transcription_node(self, text: AsyncIterable[str], model_settings=None) -> AsyncIterable[str]:
         """Clean up text before TTS to prevent empty/punctuation-only errors."""
         import re
