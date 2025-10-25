@@ -23,7 +23,7 @@ Store:
   Body: {"scene": "Keys on table", "objects": [{"label": "keys", "confidence": 0.9, "is_person": false}]}
 
 Find:
-  GET http://localhost:8000/find/keys
+  GET http://localhost:8000/find/{keys}
 
 Search:
   GET http://localhost:8000/search?q=red%20mug&limit=5
