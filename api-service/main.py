@@ -417,13 +417,19 @@ async def find_object(object_name: str):
 
 
 @app.get("/item/{item_name}")
-async def query_item_history(item_name: str, limit: int = 10):
+async def query_item_history(item_name: str, limit: int = 10, question: Optional[str] = None):
     """
     Get all mentions/history of a specific item by name.
     Uses new ID format: tenant:label:session:timestamp
+    
+    If 'question' parameter is provided, returns a natural language answer.
+    Examples:
+      /item/floor?question=what color is it
+      /item/key?question=where is it
     """
     try:
         # First try vector store
+        vector_results = None
         try:
             response = await client.get(
                 f"{VECTOR_STORE_URL}/query_by_item/{item_name}",
@@ -431,7 +437,7 @@ async def query_item_history(item_name: str, limit: int = 10):
                 timeout=5.0
             )
             response.raise_for_status()
-            return response.json()
+            vector_results = response.json()
         except:
             pass
         
@@ -450,12 +456,102 @@ async def query_item_history(item_name: str, limit: int = 10):
         
         matches.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
         
+        # If no question, return raw data
+        if not question:
+            if vector_results:
+                return vector_results
+            return {
+                "ok": True,
+                "item_name": item_name,
+                "total_mentions": len(matches),
+                "results": matches[:limit],
+                "mode": "in_memory_fallback"
+            }
+        
+        # Answer the question based on item data
+        question_lower = question.lower()
+        
+        # Get most recent mention
+        if not matches and not (vector_results and vector_results.get("results")):
+            return {
+                "ok": True,
+                "item_name": item_name,
+                "question": question,
+                "answer": f"I haven't seen any {item_name} yet.",
+                "confidence": "none"
+            }
+        
+        # Use most recent data
+        if matches:
+            latest = matches[0]
+            obj = latest["object"]
+        elif vector_results and vector_results.get("results"):
+            latest = vector_results["results"][0]
+            obj = latest.get("metadata", {})
+        
+        # Answer different types of questions
+        answer = None
+        confidence = "high"
+        
+        if "color" in question_lower or "what color" in question_lower:
+            color = obj.get("color") or obj.get("obj_attrs", {}).get("color")
+            if color and color != "null":
+                answer = f"The {item_name} is {color}."
+            else:
+                answer = f"I didn't record the color of the {item_name}."
+                confidence = "low"
+        
+        elif "where" in question_lower or "location" in question_lower:
+            rel_pos = obj.get("rel_pos") or obj.get("obj_attrs", {}).get("rel_pos")
+            if rel_pos and rel_pos != "null":
+                answer = f"The {item_name} is {rel_pos}."
+            else:
+                answer = f"I saw the {item_name} but didn't record its location."
+                confidence = "low"
+        
+        elif "when" in question_lower or "time" in question_lower:
+            timestamp = latest.get("timestamp") or obj.get("frame_ts")
+            if timestamp:
+                import datetime
+                dt = datetime.datetime.fromtimestamp(timestamp)
+                time_ago = int(time.time()) - timestamp
+                if time_ago < 60:
+                    time_str = "just now"
+                elif time_ago < 3600:
+                    time_str = f"{time_ago // 60} minutes ago"
+                elif time_ago < 86400:
+                    time_str = f"{time_ago // 3600} hours ago"
+                else:
+                    time_str = f"{time_ago // 86400} days ago"
+                answer = f"I saw the {item_name} {time_str}."
+            else:
+                answer = f"I'm not sure when I saw the {item_name}."
+                confidence = "low"
+        
+        else:
+            # General question - provide all available info
+            details = []
+            color = obj.get("color") or obj.get("obj_attrs", {}).get("color")
+            rel_pos = obj.get("rel_pos") or obj.get("obj_attrs", {}).get("rel_pos")
+            
+            if color and color != "null":
+                details.append(f"color: {color}")
+            if rel_pos and rel_pos != "null":
+                details.append(f"location: {rel_pos}")
+            
+            if details:
+                answer = f"The {item_name} - {', '.join(details)}."
+            else:
+                answer = f"I saw the {item_name} but don't have detailed information."
+                confidence = "low"
+        
         return {
             "ok": True,
             "item_name": item_name,
-            "total_mentions": len(matches),
-            "results": matches[:limit],
-            "mode": "in_memory_fallback"
+            "question": question,
+            "answer": answer,
+            "confidence": confidence,
+            "total_mentions": len(matches) if matches else vector_results.get("total_mentions", 0)
         }
         
     except Exception as e:
