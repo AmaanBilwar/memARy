@@ -39,8 +39,8 @@ export class WsAviStreamer extends BaseScriptComponent {
     // 1) Open WebSocket using InternetModule
     try {
       this.ws = this.internetModule.createWebSocket(this.websocketUrl);
-      // Prefer ArrayBuffer for binary transport with Lens/InternetModule
-      this.ws.binaryType = 'arraybuffer';
+      // Spectacles InternetModule does not support ArrayBuffer binaryType; use 'blob'
+      this.ws.binaryType = 'blob';
       print("WebSocket object created");
       
       this.ws.onopen = (event: WebSocketEvent) => {
