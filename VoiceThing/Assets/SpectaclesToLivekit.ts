@@ -304,8 +304,8 @@ export class WsAviStreamer extends BaseScriptComponent {
     
     try {
       print(`Sending to WebSocket (readyState: ${this.ws.readyState})...`);
-      // Send ArrayBuffer for best compatibility
-      this.ws.send(out.buffer);
+      // Send as Uint8Array to satisfy TS and Lens WS typing
+      this.ws.send(out);
       print("✅ Sent to WebSocket!");
     } catch (e) {
       print(`❌ WebSocket send error: ${e}`);
