@@ -244,9 +244,9 @@ def process_image_for_memory(image_data: bytes) -> Dict[str, Any]:
         # Convert image to base64 for AI processing
         image_base64 = base64.b64encode(image_data).decode('utf-8')
         
-        # Use OpenAI Vision API to describe the image
+        # Use Gemini model for vision analysis
         response = client.chat.completions.create(
-            model="openai/gpt-4-vision-preview",
+            model="google/gemini-2.5-flash-preview-09-2025",
             messages=[
                 {
                     "role": "user",
@@ -408,9 +408,63 @@ def process_text(request: AgentRequest):
     """Process transcribed text and return agent response"""
     return call_agent(request.text, request.session_id)
 
+class ImageMemoryRequest(BaseModel):
+    base64_image: str
+    user_context: Optional[str] = ""
+    session_id: Optional[str] = "default-session"
+
 @app.post("/process-image")
-async def process_image(file: UploadFile = File(...), user_context: str = "", session_id: str = "default-session"):
-    """Process uploaded image and store as memory"""
+async def process_image(request: ImageMemoryRequest):
+    """Process base64 image and store as memory"""
+    try:
+        # Decode base64 image
+        try:
+            # Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
+            if ',' in request.base64_image:
+                base64_data = request.base64_image.split(',')[1]
+            else:
+                base64_data = request.base64_image
+                
+            image_data = base64.b64decode(base64_data)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid base64 image data: {str(e)}")
+        
+        # Process image to get description
+        processing_result = process_image_for_memory(image_data)
+        
+        if not processing_result["success"]:
+            raise HTTPException(status_code=500, detail=processing_result["error"])
+        
+        # Store as memory
+        memory_result = store_image_memory(
+            image_description=processing_result["description"],
+            user_context=request.user_context,
+            session_id=request.session_id
+        )
+        
+        return AgentResponse(
+            success=True,
+            message=f"Image saved as memory: {processing_result['description'][:100]}...",
+            data={
+                "image_description": processing_result["description"],
+                "user_context": request.user_context,
+                "memory_result": memory_result
+            },
+            tool_used="store_image_memory"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        return AgentResponse(
+            success=False,
+            message=f"Failed to process image: {str(e)}",
+            error=str(e)
+        )
+
+@app.post("/process-image-file")
+async def process_image_file(file: UploadFile = File(...), user_context: str = "", session_id: str = "default-session"):
+    """Process uploaded image file and store as memory (legacy endpoint)"""
     try:
         # Validate file type
         if not file.content_type.startswith('image/'):
