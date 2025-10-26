@@ -177,11 +177,12 @@ async def store_memory(data: ImageUpload):
         try:
             # Import vision processor (make sure vision-processor is in path)
             import sys
-            vision_path = os.path.join(os.path.dirname(__file__), '..', 'vision-processor')
+            vision_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'vision-processor'))
             if vision_path not in sys.path:
                 sys.path.insert(0, vision_path)
             
             print(f"[DEBUG] Importing vision_reka from: {vision_path}")
+            print(f"[DEBUG] sys.path: {sys.path[:3]}")
             from vision_reka import analyze_image
             
             # Analyze image
@@ -279,7 +280,7 @@ async def store_text(data: TextToJSON):
     try:
         # Import vision processor
         import sys
-        vision_path = os.path.join(os.path.dirname(__file__), '..', 'vision-processor')
+        vision_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'vision-processor'))
         if vision_path not in sys.path:
             sys.path.insert(0, vision_path)
         

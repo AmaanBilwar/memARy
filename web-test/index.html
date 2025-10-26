@@ -623,7 +623,8 @@
 
         <!-- Tabs -->
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('upload')">📝 Text to JSON</button>
+            <button class="tab active" onclick="switchTab('image')">📸 Image Upload</button>
+            <button class="tab" onclick="switchTab('text')">📝 Text to JSON</button>
             <button class="tab" onclick="switchTab('search')">🔍 Search Memories</button>
             <button class="tab" onclick="switchTab('timeline')">📅 Timeline</button>
             <button class="tab" onclick="switchTab('statistics')">📊 Statistics</button>
@@ -631,8 +632,38 @@
             <button class="tab" onclick="switchTab('flashcards')">🎴 Flashcards</button>
         </div>
 
-        <!-- Upload Tab -->
-        <div id="uploadTab" class="tab-content active">
+        <!-- Image Upload Tab -->
+        <div id="imageTab" class="tab-content active">
+            <div class="section">
+                <div class="input-group">
+                    <label for="imageSessionId">Session ID</label>
+                    <input type="text" id="imageSessionId" value="test-session" placeholder="test-session">
+                </div>
+
+                <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-icon">📷</div>
+                    <h3>Click to Upload Image</h3>
+                    <p style="color: #999; margin-top: 10px;">or drag and drop</p>
+                    <p style="color: #999; font-size: 0.9em; margin-top: 5px;">JPG, PNG, or GIF</p>
+                    <input type="file" id="fileInput" accept="image/*">
+                </div>
+
+                <div class="preview-container" id="previewContainer" style="display: none;">
+                    <img id="imagePreview" alt="Preview">
+                    <div class="button-group" style="margin-top: 15px;">
+                        <button class="btn-primary" onclick="processImage()">
+                            🔄 Analyze & Store
+                        </button>
+                        <button class="btn-secondary" onclick="clearImageUpload()">
+                            Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Text Upload Tab -->
+        <div id="textTab" class="tab-content">
             <div class="section">
                 <div class="input-group">
                     <label for="sessionId">Session ID</label>
@@ -809,38 +840,161 @@
     </div>
 
     <script>
+        // Global variable to store the selected image
+        let selectedImageBase64 = null;
+
         // Tab switching
         function switchTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             
-            if (tab === 'upload') {
+            if (tab === 'image') {
                 document.querySelector('.tabs .tab:nth-child(1)').classList.add('active');
-                document.getElementById('uploadTab').classList.add('active');
-            } else if (tab === 'search') {
+                document.getElementById('imageTab').classList.add('active');
+            } else if (tab === 'text') {
                 document.querySelector('.tabs .tab:nth-child(2)').classList.add('active');
+                document.getElementById('textTab').classList.add('active');
+            } else if (tab === 'search') {
+                document.querySelector('.tabs .tab:nth-child(3)').classList.add('active');
                 document.getElementById('searchTab').classList.add('active');
             } else if (tab === 'timeline') {
-                document.querySelector('.tabs .tab:nth-child(3)').classList.add('active');
+                document.querySelector('.tabs .tab:nth-child(4)').classList.add('active');
                 document.getElementById('timelineTab').classList.add('active');
                 // Auto-load timeline when switching to it
                 loadTimeline();
             } else if (tab === 'statistics') {
-                document.querySelector('.tabs .tab:nth-child(4)').classList.add('active');
+                document.querySelector('.tabs .tab:nth-child(5)').classList.add('active');
                 document.getElementById('statisticsTab').classList.add('active');
                 // Auto-load statistics when switching to it
                 loadStatistics();
             } else if (tab === 'tracked') {
-                document.querySelector('.tabs .tab:nth-child(5)').classList.add('active');
+                document.querySelector('.tabs .tab:nth-child(6)').classList.add('active');
                 document.getElementById('trackedTab').classList.add('active');
                 // Auto-load tracked items when switching to it
                 loadTrackedItems();
             } else if (tab === 'flashcards') {
-                document.querySelector('.tabs .tab:nth-child(6)').classList.add('active');
+                document.querySelector('.tabs .tab:nth-child(7)').classList.add('active');
                 document.getElementById('flashcardsTab').classList.add('active');
                 // Auto-load flashcards when switching to it
                 loadFlashcards();
             }
+        }
+
+        // File input handler
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadArea = document.getElementById('uploadArea');
+            const previewContainer = document.getElementById('previewContainer');
+            const imagePreview = document.getElementById('imagePreview');
+
+            // File selection
+            fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    handleImageFile(file);
+                }
+            });
+
+            // Drag and drop
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    handleImageFile(file);
+                }
+            });
+
+            function handleImageFile(file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    // Store base64 without the data URL prefix
+                    const base64String = e.target.result.split(',')[1];
+                    selectedImageBase64 = base64String;
+                    
+                    // Show preview
+                    imagePreview.src = e.target.result;
+                    uploadArea.style.display = 'none';
+                    previewContainer.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Process uploaded image
+        async function processImage() {
+            if (!selectedImageBase64) {
+                alert('Please select an image first');
+                return;
+            }
+
+            const apiUrl = document.getElementById('apiUrl').value;
+            const sessionId = document.getElementById('imageSessionId').value;
+
+            showLoading();
+            hideResponse();
+
+            try {
+                const response = await fetch(`${apiUrl}/store`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        image_base64: selectedImageBase64,
+                        session_id: sessionId
+                    })
+                });
+
+                const data = await response.json();
+                hideLoading();
+
+                if (response.ok && data.ok) {
+                    // Format the response nicely
+                    let resultText = '✅ Image analyzed and stored successfully!\n\n';
+                    resultText += `📝 Scene: ${data.analysis.scene}\n\n`;
+                    resultText += `🎯 Objects Found (${data.analysis.objects.length}):\n`;
+                    data.analysis.objects.forEach(obj => {
+                        resultText += `  • ${obj.label}`;
+                        if (obj.color) resultText += ` (${obj.color})`;
+                        if (obj.rel_pos) resultText += ` - ${obj.rel_pos}`;
+                        resultText += ` [${Math.round(obj.confidence * 100)}% confidence]\n`;
+                    });
+                    
+                    resultText += `\n💾 Storage: ${data.storage.mode || 'stored'}\n`;
+                    
+                    if (data.analysis.text_summary) {
+                        resultText += `\n📄 Full Analysis:\n${data.analysis.text_summary}`;
+                    }
+                    
+                    showResponse(resultText, 'success', true);
+                } else {
+                    showResponse(JSON.stringify(data, null, 2), 'error');
+                }
+            } catch (error) {
+                hideLoading();
+                showResponse(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Clear image upload
+        function clearImageUpload() {
+            selectedImageBase64 = null;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('uploadArea').style.display = 'block';
+            document.getElementById('previewContainer').style.display = 'none';
+            hideResponse();
         }
 
         function clearInput() {
