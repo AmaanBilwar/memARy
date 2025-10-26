@@ -593,7 +593,7 @@ async def health():
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8001))
-    print(f"\n🚀 AR Glasses Vector Memory Store")
+    print(f"\n[STARTUP] AR Glasses Vector Memory Store")
     print(f"   Starting on port {port}")
     print(f"   Docs: http://localhost:{port}/docs\n")
     uvicorn.run(app, host="0.0.0.0", port=port)

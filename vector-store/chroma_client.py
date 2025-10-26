@@ -81,22 +81,22 @@ def get_client():
                     database=CHROMA_DATABASE,
                     settings=settings
                 )
-                print("✓ ChromaDB Cloud connected")
+                print("[OK] ChromaDB Cloud connected")
             except Exception as e:
-                print("⚠️  ChromaDB Cloud connection failed; falling back to local persistent client")
+                print("[WARN] ChromaDB Cloud connection failed; falling back to local persistent client")
                 _client = chromadb.PersistentClient(
                     path=PERSIST_DIR,
                     settings=settings
                 )
-                print(f"✓ ChromaDB local connected at {PERSIST_DIR}")
+                print(f"[OK] ChromaDB local connected at {PERSIST_DIR}")
         else:
             if _USE_CLOUD_ENV and _USE_CLOUD_ENV.lower() == "true":
-                print("⚠️  USE_CHROMA_CLOUD=true but required credentials are missing; using local persistent client")
+                print("[WARN] USE_CHROMA_CLOUD=true but required credentials are missing; using local persistent client")
             _client = chromadb.PersistentClient(
                 path=PERSIST_DIR,
                 settings=settings
             )
-            print(f"✓ ChromaDB local connected at {PERSIST_DIR}")
+            print(f"[OK] ChromaDB local connected at {PERSIST_DIR}")
     return _client
 
 def get_or_create_collection(name: str, metadata: dict = None):
@@ -138,4 +138,4 @@ def init_collections():
     ]
     for coll in collections:
         get_or_create_collection(coll)
-    print(f"✓ Initialized {len(collections)} collections")
+    print(f"[OK] Initialized {len(collections)} collections")
