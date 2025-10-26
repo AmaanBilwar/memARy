@@ -475,6 +475,9 @@ def test_tool_directly(tool_name: str, parameters: Dict[str, Any]):
             "error": f"Tool execution failed: {str(e)}"
         }
 
+# ASGI application for Gunicorn
+asgi_app = app
+
 def main(): 
     print("Hello from memary-voice agent!")
     uvicorn.run(app, host="0.0.0.0", port=8000)
