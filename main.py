@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any, Union
 import uvicorn
@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 import requests
 import json
 from openai import OpenAI
+import base64
+from PIL import Image
+import io
 
 load_dotenv()
 
@@ -144,6 +147,19 @@ TOOLS = [
                 "item": {"type": "string", "description": "Specific item to check relationships for"}
             }
         }
+    },
+    {
+        "name": "store_image_memory",
+        "description": "Store an image as a memory with AI-generated description. Use when user wants to remember a picture, photo, or visual content.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "image_description": {"type": "string", "description": "AI-generated description of the image content"},
+                "user_context": {"type": "string", "description": "Additional context provided by the user about the image", "default": ""},
+                "session_id": {"type": "string", "description": "Session ID for the memory", "default": "default-session"}
+            },
+            "required": ["image_description"]
+        }
     }
 ]
 
@@ -222,6 +238,52 @@ def get_relationships(item: Optional[str] = None) -> Dict[str, Any]:
         params["item"] = item
     return make_api_call("GET", "/relationships", params=params)
 
+def process_image_for_memory(image_data: bytes) -> Dict[str, Any]:
+    """Process image and generate description using AI"""
+    try:
+        # Convert image to base64 for AI processing
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+        
+        # Use OpenAI Vision API to describe the image
+        response = client.chat.completions.create(
+            model="openai/gpt-4-vision-preview",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Describe this image in detail, focusing on objects, people, locations, and any important visual elements that would be useful for memory storage. Be specific about what you see."
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_base64}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens=500
+        )
+        
+        description = response.choices[0].message.content
+        return {"success": True, "description": description}
+        
+    except Exception as e:
+        return {"success": False, "error": f"Image processing failed: {str(e)}"}
+
+def store_image_memory(image_description: str, user_context: str = "", session_id: str = "default-session") -> Dict[str, Any]:
+    """Store an image memory with AI-generated description"""
+    # Combine AI description with user context
+    full_description = f"Image memory: {image_description}"
+    if user_context:
+        full_description += f" | User context: {user_context}"
+    
+    # Store as text memory (since the backend expects text)
+    data = {"text_summary": full_description, "session_id": session_id}
+    return make_api_call("POST", "/store_text", json=data)
+
 # Tool execution function
 def execute_tool(tool_name: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
     """Execute a tool with given parameters"""
@@ -235,7 +297,8 @@ def execute_tool(tool_name: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
         "track_item": track_item,
         "untrack_item": untrack_item,
         "get_tracked_items": get_tracked_items,
-        "get_relationships": get_relationships
+        "get_relationships": get_relationships,
+        "store_image_memory": store_image_memory
     }
     
     if tool_name not in tool_functions:
@@ -344,6 +407,48 @@ def call_agent(user_text: str, session_id: str = "default-session") -> AgentResp
 def process_text(request: AgentRequest):
     """Process transcribed text and return agent response"""
     return call_agent(request.text, request.session_id)
+
+@app.post("/process-image")
+async def process_image(file: UploadFile = File(...), user_context: str = "", session_id: str = "default-session"):
+    """Process uploaded image and store as memory"""
+    try:
+        # Validate file type
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File must be an image")
+        
+        # Read image data
+        image_data = await file.read()
+        
+        # Process image to get description
+        processing_result = process_image_for_memory(image_data)
+        
+        if not processing_result["success"]:
+            raise HTTPException(status_code=500, detail=processing_result["error"])
+        
+        # Store as memory
+        memory_result = store_image_memory(
+            image_description=processing_result["description"],
+            user_context=user_context,
+            session_id=session_id
+        )
+        
+        return AgentResponse(
+            success=True,
+            message=f"Image saved as memory: {processing_result['description'][:100]}...",
+            data={
+                "image_description": processing_result["description"],
+                "user_context": user_context,
+                "memory_result": memory_result
+            },
+            tool_used="store_image_memory"
+        )
+        
+    except Exception as e:
+        return AgentResponse(
+            success=False,
+            message=f"Failed to process image: {str(e)}",
+            error=str(e)
+        )
 
 @app.get("/")
 def read_root():

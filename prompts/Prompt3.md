@@ -10,6 +10,11 @@ If the request is clearly for one specific memory, use that source:
 
 If the memory could be found in multiple sources or you're unsure, the tool already has logic to return the latest occurence of that memory.
 
+When users want to save pictures as memories:
+- Use the store_image_memory tool when users say things like "remember this picture", "save this image", or "remember what I'm looking at"
+- The tool will automatically generate a detailed description of the image using AI vision capabilities
+- Users can provide additional context about the image if they want
+
 Context Hierarchy
 
 When analyzing user requests, always follow this priority order:
