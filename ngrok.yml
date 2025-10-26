@@ -1,0 +1,37 @@
+version: "2"
+authtoken: 34YKWpfQYvmFUsYvspG7g6pu9Mh_4CKphHFXeHrZf8xEL5bRU
+
+# Logging configuration
+log_level: info
+log_format: json
+log: /tmp/ngrok.log
+
+# Agent settings
+web_addr: localhost:4040  # ngrok web interface at http://localhost:4040
+console_ui: true
+
+# Define your tunnels
+tunnels:
+  # Main API Service - Image Upload Pipeline
+  memary-api:
+    proto: http
+    addr: 8000
+    domain: memary-chromadb.ngrok-free.app
+    inspect: true
+    # Optional: Add basic auth for security
+    # Uncomment below to add username/password protection
+    # basic_auth:
+    #   - "admin:YourSecurePassword123"
+  
+  # Vector Store Service (optional - uncomment if you want it public)
+  # vector-store:
+  #   proto: http
+  #   addr: 8001
+  #   inspect: true
+  
+  # Web Interface (optional - uncomment if you want it public)
+  # web-interface:
+  #   proto: http
+  #   addr: 8080
+  #   inspect: false
+

@@ -613,8 +613,16 @@
         <!-- API URL Configuration -->
         <div class="section">
             <div class="input-group">
+                <label for="deploymentMode">Deployment Mode</label>
+                <select id="deploymentMode" onchange="updateApiUrl()" style="padding: 12px; border-radius: 8px; border: 2px solid #ddd;">
+                    <option value="local">🏠 Local (localhost:8000)</option>
+                    <option value="ngrok" selected>🌐 Ngrok (memary-chromadb.ngrok-free.app)</option>
+                    <option value="custom">⚙️ Custom URL</option>
+                </select>
+            </div>
+            <div class="input-group">
                 <label for="apiUrl">API Base URL</label>
-                <input type="url" id="apiUrl" value="http://localhost:8000" placeholder="http://localhost:8000">
+                <input type="url" id="apiUrl" value="https://memary-chromadb.ngrok-free.app" placeholder="https://memary-chromadb.ngrok-free.app" disabled>
             </div>
             <button class="btn-secondary" onclick="clearStorage()" style="width: 100%; margin-top: 10px;">
                 🗑️ Clear All Storage
@@ -842,6 +850,22 @@
     <script>
         // Global variable to store the selected image
         let selectedImageBase64 = null;
+
+        // Update API URL based on deployment mode
+        function updateApiUrl() {
+            const mode = document.getElementById('deploymentMode').value;
+            const apiUrlInput = document.getElementById('apiUrl');
+            
+            if (mode === 'local') {
+                apiUrlInput.value = 'http://localhost:8000';
+                apiUrlInput.disabled = true;
+            } else if (mode === 'ngrok') {
+                apiUrlInput.value = 'https://memary-chromadb.ngrok-free.app';
+                apiUrlInput.disabled = true;
+            } else {
+                apiUrlInput.disabled = false;
+            }
+        }
 
         // Tab switching
         function switchTab(tab) {

@@ -3,6 +3,27 @@ FastAPI service implementing 5-tier ChromaDB memory architecture
 with devil's-advocate safeguards for AR glasses workflow.
 """
 import os
+import sys
+
+# === SUPPRESS CHROMADB TELEMETRY ERRORS ===
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["CHROMA_TELEMETRY_DISABLED"] = "1"
+
+# Filter stderr to hide telemetry error messages
+import io
+class _TelemetryFilter(io.TextIOBase):
+    def __init__(self, original):
+        self.original = original
+    def write(self, msg):
+        if msg and not any(x in str(msg) for x in ['telemetry', 'posthog', 'capture()']):
+            return self.original.write(msg)
+        return len(msg)
+    def flush(self):
+        return self.original.flush()
+
+sys.stderr = _TelemetryFilter(sys.stderr)
+# === END TELEMETRY SUPPRESSION ===
+
 import time
 import hashlib
 import json

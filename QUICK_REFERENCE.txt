@@ -1,0 +1,64 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    🌐 MEMARY API - QUICK REFERENCE                           ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📍 PUBLIC API URL:
+   https://memary-chromadb.ngrok-free.app
+
+───────────────────────────────────────────────────────────────────────────────
+
+🚀 STORE TEXT MEMORY (From ANY device):
+
+   curl -X POST https://memary-chromadb.ngrok-free.app/store_text \
+     -H "Content-Type: application/json" \
+     -d '{"text_summary": "YOUR TEXT HERE", "session_id": "DEVICE_ID"}'
+
+───────────────────────────────────────────────────────────────────────────────
+
+🔍 SEARCH MEMORIES:
+
+   curl "https://memary-chromadb.ngrok-free.app/search?query=YOUR_QUERY"
+
+───────────────────────────────────────────────────────────────────────────────
+
+📊 GET ALL MEMORIES:
+
+   curl https://memary-chromadb.ngrok-free.app/memories
+
+───────────────────────────────────────────────────────────────────────────────
+
+🧪 TEST PIPELINE:
+
+   cd /Users/arkanfadhilkautsar/Downloads/memary
+   python3 test_ngrok_pipeline.py
+
+───────────────────────────────────────────────────────────────────────────────
+
+🛠️ START SERVICES:
+
+   cd /Users/arkanfadhilkautsar/Downloads/memary
+   ./deploy_ngrok.sh
+
+───────────────────────────────────────────────────────────────────────────────
+
+📱 WEB UI (For Testing):
+
+   http://localhost:8080
+   (Select "Ngrok" mode from dropdown)
+
+───────────────────────────────────────────────────────────────────────────────
+
+🎛️ MONITOR API TRAFFIC:
+
+   http://localhost:4040
+
+───────────────────────────────────────────────────────────────────────────────
+
+📖 FULL DOCUMENTATION:
+
+   • API Examples:  NGROK_API_USAGE.md
+   • Test Results:  DEPLOYMENT_SUCCESS.md
+   • Architecture:  ARCHITECTURE.md
+
+╚══════════════════════════════════════════════════════════════════════════════╝
+
