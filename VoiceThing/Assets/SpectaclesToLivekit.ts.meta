@@ -26,6 +26,7 @@
   ExportUid: 00000000-0000-0000-0000-000000000000
   PackagePolicy: CanBeUnpacked
   ScriptInputsHidden:
+    internetModule: false
     statusText: false
     uiImage: false
     websocketUrl: false
@@ -41,10 +42,12 @@
     - statusText: !<reference.Text> 00000000-0000-0000-0000-000000000000
       uiImage: !<reference.Image> 00000000-0000-0000-0000-000000000000
       websocketUrl: "ws://192.168.1.100:8765"
+      internetModule: !<reference.InternetModule> 00000000-0000-0000-0000-000000000000
   ScriptTypes:
     -
       {}
   InputLines:
     - // @input Component.Text statusText
     - // @input Component.Image uiImage
-    - '// @input string websocketUrl = "ws://192.168.1.100:8765"'
+    - '// @input string websocketUrl = "wss://memary-z5e3.onrender.com"'
+    - // @input Asset.InternetModule internetModule

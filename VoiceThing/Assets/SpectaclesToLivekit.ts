@@ -7,10 +7,12 @@ export class WsAviStreamer extends BaseScriptComponent {
   uiImage: Image;
   
   @input
-  websocketUrl: string = "ws://192.168.1.100:8765";
+  websocketUrl: string = "wss://memary-z5e3.onrender.com";
+
+  @input
+  internetModule: InternetModule;
   
   private cameraModule: CameraModule = require('LensStudio:CameraModule');
-  private internetModule: InternetModule = require('LensStudio:InternetModule');
   private ws: WebSocket | null = null;
   private cameraTexture: Texture;
   private cameraTextureProvider: CameraTextureProvider;
