@@ -1,6 +1,7 @@
 chromadb>=0.5.5
 fastapi==0.115.*
 uvicorn[standard]==0.30.*
+gunicorn==21.*
 pydantic==2.*
 sentence-transformers==3.*
 python-dotenv==1.*
