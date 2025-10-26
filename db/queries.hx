@@ -1,18 +1,18 @@
 // Helix queries for memARy text-only memory engine
 
 query add_memory(payload) {
-  insert into N::Memory values payload
+  insert into memory values payload
 }
 
 query list_memories({ session_id, limit }) {
-  from N::Memory
+  from memory
   where session_id == session_id or session_id is null
   order by created_at desc
   limit coalesce(limit, 100)
 }
 
 query search_memory({ embedding, session_id, limit }) {
-  from N::Memory
+  from memory
   using knn on embedding with query embedding metric cosine
   where session_id == session_id or session_id is null
   limit coalesce(limit, 5)
@@ -20,8 +20,8 @@ query search_memory({ embedding, session_id, limit }) {
 
 query stats() {
   {
-    total: count(N::Memory),
-    by_session: group N::Memory by session_id with { session_id, count: count(*) }
+    total: count(memory),
+    by_session: group memory by session_id with { session_id, count: count(*) }
   }
 }
 

@@ -6,4 +6,7 @@ queries = "./db/"
 port = 6969
 build_mode = "debug"
 
-[cloud]
+[cloud.production.helix]
+cluster_id = "YOUR_CLUSTER_ID"
+region = "us-east-1"
+build_mode = "release"
