@@ -53,11 +53,13 @@ def show_curl_examples():
     print('  -H "Content-Type: application/json" \\')
     print('  -d \'{"text": "Remember this picture", "session_id": "my-session"}\'')
     
-    print("\n2️⃣ Direct image upload:")
+    print("\n2️⃣ Process base64 image JSON:")
     print('curl -X POST "http://localhost:8000/process-image" \\')
-    print('  -F "file=@your_image.jpg" \\')
-    print('  -F "user_context=This is my workspace" \\')
-    print('  -F "session_id=my-session"')
+    print('  -H "Content-Type: application/json" \\')
+    print('  -d "{\\"base64_image\\": \\\"data:image/jpeg;base64,<BASE64>\\\", \\"user_context\\": \\\"My desk\\\", \\"session_id\\": \\\"my-session\\\"}"')
+
+    print("\n3️⃣ List memories:")
+    print('curl -X GET "http://localhost:8000/memories?session_id=my-session&limit=10"')
 
 if __name__ == "__main__":
     print("🚀 Quick Test for Image Memory POST Commands")

@@ -10,11 +10,22 @@ from openai import OpenAI
 import base64
 from PIL import Image
 import io
+from uuid import uuid4
+from datetime import datetime
+from simple_memory import add_memory, list_memories, search_memories, get_stats, delete_memory
+try:
+    # Prefer Helix embedders per docs: https://docs.helix-db.com/documentation/sdks/helix-py#embedders
+    from helix.embedding.openai_client import OpenAIEmbedder  # type: ignore
+    from helix.embedding.gemini_client import GeminiEmbedder  # type: ignore
+except Exception:
+    OpenAIEmbedder = None  # type: ignore
+    GeminiEmbedder = None  # type: ignore
 
 load_dotenv()
 
 OPENROUTER_API_KEY=os.getenv("OPENROUTER_API_KEY")
 CHROMADB_BASE_URL=os.getenv("CHROMADB_BASE_URL")
+EMBEDDING_PROVIDER=os.getenv("EMBEDDING_PROVIDER")  # optional: 'openai' | 'gemini'
 
 # Initialize OpenAI client for OpenRouter
 client = OpenAI(
@@ -160,83 +171,187 @@ TOOLS = [
             },
             "required": ["image_description"]
         }
+    },
+    {
+        "name": "add_memory_direct",
+        "description": "Directly add a memory without going through the AI agent. Use when user explicitly wants to store a specific memory.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "description": {"type": "string", "description": "Description of the memory to store"},
+                "user_context": {"type": "string", "description": "Additional context about the memory", "default": ""},
+                "session_id": {"type": "string", "description": "Session ID for the memory", "default": "default-session"}
+            },
+            "required": ["description"]
+        }
+    },
+    {
+        "name": "list_memories_direct",
+        "description": "Directly list memories without going through the AI agent. Use when user wants to see all their memories.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string", "description": "Session ID to filter memories", "default": None},
+                "limit": {"type": "integer", "description": "Maximum number of memories to return", "default": 100}
+            }
+        }
+    },
+    {
+        "name": "search_memories_direct",
+        "description": "Directly search memories without going through the AI agent. Use when user wants to find specific memories.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query to find memories"},
+                "session_id": {"type": "string", "description": "Session ID to filter search", "default": None},
+                "limit": {"type": "integer", "description": "Maximum number of results", "default": 5}
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "delete_memory_direct",
+        "description": "Directly delete a memory by ID without going through the AI agent. Use when user wants to remove a specific memory.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "memory_id": {"type": "string", "description": "ID of the memory to delete"}
+            },
+            "required": ["memory_id"]
+        }
     }
 ]
 
-# Helper function for API calls
-def make_api_call(method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
-    """Helper function to make API calls with error handling"""
+## Helix-backed implementations (Chroma removed)
+
+_embedder = None
+def _create_embedder():
     try:
-        url = f"{CHROMADB_BASE_URL}{endpoint}"
-        response = requests.request(method, url, **kwargs)
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return {
-                "error": f"API request failed with status {response.status_code}",
-                "details": response.text
-            }
-    except requests.exceptions.RequestException as e:
-        return {
-            "error": f"Request failed: {str(e)}",
-            "details": None
-        }
+        provider = (EMBEDDING_PROVIDER or "").lower()
+        # Explicit choice
+        if provider == "openai" and OpenAIEmbedder and os.getenv("OPENAI_API_KEY"):
+            return OpenAIEmbedder()
+        if provider == "gemini" and GeminiEmbedder and os.getenv("GEMINI_API_KEY"):
+            return GeminiEmbedder()
+        # Auto-detect
+        if OpenAIEmbedder and os.getenv("OPENAI_API_KEY"):
+            return OpenAIEmbedder()
+        if GeminiEmbedder and os.getenv("GEMINI_API_KEY"):
+            return GeminiEmbedder()
+    except Exception as e:
+        print(f"Warning: Failed to initialize Helix embedder: {e}")
+    return None
+
+_embedder = _create_embedder()
+
+def generate_text_embedding(text: str, for_query: bool = False) -> List[float]:
+    """Create a text embedding via OpenRouter (OpenAI embeddings). Robust to response shapes."""
+    # Preferred path: use Helix embedders
+    if _embedder is not None:
+        try:
+            # Only Gemini supports task_type tuning; OpenAI doesn't
+            if isinstance(_embedder, GeminiEmbedder):
+                task_kwargs = {"task_type": "RETRIEVAL_QUERY" if for_query else "RETRIEVAL_DOCUMENT"}
+                vec = _embedder.embed(text, **task_kwargs)  # type: ignore[attr-defined]
+            else:
+                # OpenAI embedder doesn't support task_type
+                vec = _embedder.embed(text)  # type: ignore[attr-defined]
+            
+            # Helix embedders return the vector directly, not wrapped in an object
+            if not isinstance(vec, list):
+                raise TypeError("Embedder returned non-list vector")
+            return [float(x) for x in vec]
+        except Exception as e:
+            # Fall through to OpenRouter fallback if Helix embedder fails
+            print(f"Helix embedder failed: {e}, falling back to OpenRouter")
+            pass
+    def _to_dict(obj):
+        try:
+            if hasattr(obj, "model_dump"):
+                return obj.model_dump()
+            if hasattr(obj, "to_dict"):
+                return obj.to_dict()
+            if hasattr(obj, "dict"):
+                return obj.dict()
+            if isinstance(obj, (str, bytes)):
+                return json.loads(obj if isinstance(obj, str) else obj.decode())
+            return obj
+        except Exception:
+            return obj
+
+    last_err: Optional[Exception] = None
+    attempts = [
+        {"input": [text], "encoding_format": "float"},
+        {"input": text},  # some providers require a plain string and no encoding_format
+    ]
+    for kwargs in attempts:
+        try:
+            res = client.embeddings.create(model="openai/text-embedding-3-small", **kwargs)  # type: ignore[arg-type]
+
+            # Handle different response types
+            if hasattr(res, "data") and res.data:
+                # Standard OpenAI SDK response
+                embedding = res.data[0].embedding  # type: ignore[attr-defined]
+            else:
+                # Try to parse as dict/JSON
+                parsed = _to_dict(res)
+                if isinstance(parsed, dict) and "data" in parsed and parsed["data"]:
+                    embedding = parsed["data"][0]["embedding"]
+                else:
+                    # If it's a string, try to parse it as JSON
+                    if isinstance(parsed, str):
+                        try:
+                            parsed = json.loads(parsed)
+                            embedding = parsed["data"][0]["embedding"]
+                        except (json.JSONDecodeError, KeyError, IndexError):
+                            raise TypeError(f"Unexpected response format: {type(parsed)}")
+                    else:
+                        raise TypeError(f"Unexpected response format: {type(parsed)}")
+
+            if not isinstance(embedding, list):
+                raise TypeError("Embedding is not a list")
+            return [float(x) for x in embedding]
+        except Exception as e:
+            last_err = e
+            continue
+    raise RuntimeError(f"Embedding failed: {last_err}")
 
 # Tool implementations
 def get_all_memories(session_id: Optional[str] = None, limit: int = 100) -> Dict[str, Any]:
-    """Get all stored memories"""
-    params = {"limit": limit}
-    if session_id:
-        params["session_id"] = session_id
-    return make_api_call("GET", "/memories", params=params)
+    """List memories (recent first)."""
+    return list_memories(session_id, limit)
 
-def search_memories(query: str, session_id: Optional[str] = None, limit: int = 5) -> Dict[str, Any]:
-    """Search through memories using natural language"""
-    params = {"query": query, "limit": limit}
-    if session_id:
-        params["session_id"] = session_id
-    return make_api_call("GET", "/search", params=params)
+def search_memories_tool(query: str, session_id: Optional[str] = None, limit: int = 5) -> Dict[str, Any]:
+    """Search memories using text search."""
+    return search_memories(query, session_id, limit)
 
 def find_object(object_name: str) -> Dict[str, Any]:
-    """Find where a specific object was last seen"""
-    return make_api_call("GET", f"/find/{object_name}")
+    """Not implemented with Helix yet."""
+    return {"error": "find_object not implemented"}
 
 def query_item_history(item_name: str, question: Optional[str] = None, limit: int = 10) -> Dict[str, Any]:
-    """Get detailed history of a specific item"""
-    params = {"limit": limit}
-    if question:
-        params["question"] = question
-    return make_api_call("GET", f"/item/{item_name}", params=params)
+    """Not implemented with Helix yet."""
+    return {"error": "query_item_history not implemented"}
 
-def store_text_memory(text_summary: str, session_id: str = "default-session") -> Dict[str, Any]:
-    """Store a text-based memory"""
-    data = {"text_summary": text_summary, "session_id": session_id}
-    return make_api_call("POST", "/store_text", json=data)
+def store_text_memory(text_summary: str, user_context: str = "", session_id: str = "default-session") -> Dict[str, Any]:
+    """Store a text-based memory."""
+    return add_memory(text_summary, user_context, session_id)
 
 def get_statistics() -> Dict[str, Any]:
-    """Get statistics about stored memories"""
-    return make_api_call("GET", "/statistics")
+    """Get memory statistics."""
+    return get_stats()
 
 def track_item(item_name: str, alert_hours: int = 24, notes: str = "", session_id: str = "default-session") -> Dict[str, Any]:
-    """Start tracking an item"""
-    data = {"item_name": item_name, "alert_hours": alert_hours, "notes": notes}
-    return make_api_call("POST", "/track_item", json=data)
+    return {"error": "track_item not implemented"}
 
 def untrack_item(item_name: str) -> Dict[str, Any]:
-    """Stop tracking an item"""
-    return make_api_call("DELETE", f"/track_item/{item_name}")
+    return {"error": "untrack_item not implemented"}
 
 def get_tracked_items() -> Dict[str, Any]:
-    """Get all currently tracked items"""
-    return make_api_call("GET", "/tracked_items")
+    return {"error": "get_tracked_items not implemented"}
 
 def get_relationships(item: Optional[str] = None) -> Dict[str, Any]:
-    """Get relationships between objects"""
-    params = {}
-    if item:
-        params["item"] = item
-    return make_api_call("GET", "/relationships", params=params)
+    return {"error": "get_relationships not implemented"}
 
 def process_image_for_memory(image_data: bytes) -> Dict[str, Any]:
     """Process image and generate description using AI"""
@@ -274,22 +389,32 @@ def process_image_for_memory(image_data: bytes) -> Dict[str, Any]:
         return {"success": False, "error": f"Image processing failed: {str(e)}"}
 
 def store_image_memory(image_description: str, user_context: str = "", session_id: str = "default-session") -> Dict[str, Any]:
-    """Store an image memory with AI-generated description"""
-    # Combine AI description with user context
-    full_description = f"Image memory: {image_description}"
-    if user_context:
-        full_description += f" | User context: {user_context}"
-    
-    # Store as text memory (since the backend expects text)
-    data = {"text_summary": full_description, "session_id": session_id}
-    return make_api_call("POST", "/store_text", json=data)
+    """Store an image memory with AI-generated description."""
+    return add_memory(image_description, user_context, session_id)
+
+# Direct memory operation tools
+def add_memory_direct(description: str, user_context: str = "", session_id: str = "default-session") -> Dict[str, Any]:
+    """Directly add a memory without AI processing."""
+    return add_memory(description, user_context, session_id)
+
+def list_memories_direct(session_id: Optional[str] = None, limit: int = 100) -> Dict[str, Any]:
+    """Directly list memories without AI processing."""
+    return list_memories(session_id, limit)
+
+def search_memories_direct(query: str, session_id: Optional[str] = None, limit: int = 5) -> Dict[str, Any]:
+    """Directly search memories without AI processing."""
+    return search_memories(query, session_id, limit)
+
+def delete_memory_direct(memory_id: str) -> Dict[str, Any]:
+    """Directly delete a memory by ID."""
+    return delete_memory(memory_id)
 
 # Tool execution function
 def execute_tool(tool_name: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
     """Execute a tool with given parameters"""
     tool_functions = {
         "get_all_memories": get_all_memories,
-        "search_memories": search_memories,
+        "search_memories": search_memories_tool,
         "find_object": find_object,
         "query_item_history": query_item_history,
         "store_text_memory": store_text_memory,
@@ -298,7 +423,11 @@ def execute_tool(tool_name: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
         "untrack_item": untrack_item,
         "get_tracked_items": get_tracked_items,
         "get_relationships": get_relationships,
-        "store_image_memory": store_image_memory
+        "store_image_memory": store_image_memory,
+        "add_memory_direct": add_memory_direct,
+        "list_memories_direct": list_memories_direct,
+        "search_memories_direct": search_memories_direct,
+        "delete_memory_direct": delete_memory_direct
     }
     
     if tool_name not in tool_functions:
@@ -514,6 +643,18 @@ def get_available_tools():
     """Get list of available tools"""
     return {"tools": TOOLS}
 
+@app.get("/memories")
+def list_memories_endpoint(session_id: Optional[str] = None, limit: int = 100):
+    """HTTP endpoint to list recent memories."""
+    try:
+        print(f"DEBUG: list_memories called with session_id={session_id}, limit={limit}")
+        result = list_memories(session_id, limit)
+        print(f"DEBUG: list_memories result: {result}")
+        return result
+    except Exception as e:
+        print(f"DEBUG: Error in list_memories_endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/test-agent")
 def test_agent(request: AgentRequest):
     """Test endpoint that shows detailed information about the agent's decision process"""
@@ -595,6 +736,18 @@ def test_agent(request: AgentRequest):
             "success": False,
             "error": f"Test failed: {str(e)}"
         }
+
+@app.delete("/memories/{memory_id}")
+def delete_memory_endpoint(memory_id: str):
+    """Delete a memory by ID"""
+    try:
+        result = delete_memory(memory_id)
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=404, detail=result["error"])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/debug/system-prompt")
 def get_system_prompt():
