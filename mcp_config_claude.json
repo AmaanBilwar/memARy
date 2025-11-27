@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "remembar": {
+      "command": "python3",
+      "args": [
+        "/Users/arkanfadhilkautsar/Downloads/remembar/api-service/mcp_server.py"
+      ],
+      "env": {
+        "REMEMBAR_API_URL": "http://localhost:8000"
+      }
+    }
+  }
+}
+

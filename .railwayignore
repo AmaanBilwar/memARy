@@ -1,0 +1,55 @@
+# Railway Ignore - files not needed for deployment
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# ChromaDB local storage (will use in-memory or external)
+.chroma/
+*.db
+var/chroma/
+
+# Development files
+web-test/
+vision-processor/
+example-client-service/
+
+# Documentation (optional - keep if you want)
+*.md
+!README.md
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+test*.py
+*_test.py
+
+# Git
+.git/
+.gitignore
+

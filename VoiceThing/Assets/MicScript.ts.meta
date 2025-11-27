@@ -1,0 +1,47 @@
+- !<AssetImportMetadata/93e36c85-6392-4d7d-883e-2d268862ad94>
+  ImportedAssetIds:
+    TypeScriptAsset: !<reference> 61dacfc2-a3d7-42c1-abe1-34a47cd666ca
+  ImporterName: TypeScriptAssetImporter
+  PrimaryAsset: !<reference> 61dacfc2-a3d7-42c1-abe1-34a47cd666ca
+  PackageType: NotAPackage
+  LegacyPackagePolicy: ~
+  ExtraData:
+    {}
+  AssetDataMap:
+    TypeScriptAsset: !<own> 8e1002cc-e356-4891-bc84-4f8303f1a47e
+  DependentFiles:
+    []
+  ImporterSettings: !<AssetImporterSettings>
+    {}
+  CompressionSettings: !<own> 00000000-0000-0000-0000-000000000000
+- !<TypeScriptAssetData/8e1002cc-e356-4891-bc84-4f8303f1a47e>
+  SvgIcon: ""
+  SetupScript:
+    code: ""
+  Description: ""
+  VersionMajor: 0
+  VersionMinor: 0
+  VersionPatch: 0
+  ComponentUid: ffbe67a7-9546-47a3-8e94-ecd925dac395
+  ExportUid: 00000000-0000-0000-0000-000000000000
+  PackagePolicy: CanBeUnpacked
+  ScriptInputsHidden:
+    micButtonImage: false
+    statusText: false
+  ScriptTypesHidden:
+    {}
+  ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
+  DeclarationFile: !<reference> 00000000-0000-0000-0000-000000000000
+  Tags:
+    []
+  Attachments:
+    []
+  DefaultScriptInputs:
+    - statusText: !<reference.Text> 00000000-0000-0000-0000-000000000000
+      micButtonImage: !<reference.Image> 00000000-0000-0000-0000-000000000000
+  ScriptTypes:
+    -
+      {}
+  InputLines:
+    - // @input Component.Text statusText
+    - // @input Component.Image micButtonImage

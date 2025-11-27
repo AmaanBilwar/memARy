@@ -1,0 +1,15 @@
+[phases.setup]
+nixPkgs = ['python39', 'pip']
+
+[phases.install]
+cmds = [
+  'cd api-service',
+  'pip install -r requirements.txt'
+]
+
+[phases.build]
+cmds = ['echo "Build complete"']
+
+[start]
+cmd = 'cd api-service && uvicorn main:app --host 0.0.0.0 --port $PORT'
+

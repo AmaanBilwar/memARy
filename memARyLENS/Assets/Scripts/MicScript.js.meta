@@ -1,0 +1,44 @@
+- !<AssetImportMetadata/532fd415-9fa9-4f52-a3c6-8769cddd183e>
+  ImportedAssetIds:
+    JavaScriptAsset: !<reference> 41e9394e-74f5-4f6b-a26c-c41f6be21b44
+  ImporterName: JavaScriptAssetImporter
+  PrimaryAsset: !<reference> 41e9394e-74f5-4f6b-a26c-c41f6be21b44
+  PackageType: NotAPackage
+  LegacyPackagePolicy: ~
+  ExtraData:
+    {}
+  AssetDataMap:
+    JavaScriptAsset: !<own> 753d46ae-fbaf-4830-b095-ff36c173e275
+  DependentFiles:
+    []
+  ImporterSettings: !<AssetImporterSettings>
+    {}
+  CompressionSettings: !<own> 00000000-0000-0000-0000-000000000000
+- !<ScriptAssetData/753d46ae-fbaf-4830-b095-ff36c173e275>
+  SvgIcon: ""
+  SetupScript:
+    code: ""
+  Description: ""
+  VersionMajor: 0
+  VersionMinor: 0
+  VersionPatch: 0
+  ComponentUid: 020b4fcf-b460-4caa-a080-11415b0a659f
+  ExportUid: 00000000-0000-0000-0000-000000000000
+  PackagePolicy: CanBeUnpacked
+  ScriptInputsHidden:
+    micButton: false
+    statusText: false
+  ScriptTypesHidden:
+    {}
+  ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
+  DeclarationFile: !<reference> 00000000-0000-0000-0000-000000000000
+  Tags:
+    []
+  Attachments:
+    []
+  DefaultScriptInputs:
+    - statusText: !<reference.Text> 00000000-0000-0000-0000-000000000000
+      micButton: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+  ScriptTypes:
+    -
+      {}
