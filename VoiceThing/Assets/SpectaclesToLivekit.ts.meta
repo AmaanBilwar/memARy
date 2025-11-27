@@ -1,0 +1,50 @@
+- !<AssetImportMetadata/1f419a1f-db8d-4d24-87bd-310ed6f159d2>
+  ImportedAssetIds:
+    TypeScriptAsset: !<reference> 30f07d2e-a08e-4849-be80-259ba355e35f
+  ImporterName: TypeScriptAssetImporter
+  PrimaryAsset: !<reference> 30f07d2e-a08e-4849-be80-259ba355e35f
+  PackageType: NotAPackage
+  LegacyPackagePolicy: ~
+  ExtraData:
+    {}
+  AssetDataMap:
+    TypeScriptAsset: !<own> d7577dd0-50d3-4577-a57c-16068c693f10
+  DependentFiles:
+    []
+  ImporterSettings: !<AssetImporterSettings>
+    {}
+  CompressionSettings: !<own> 00000000-0000-0000-0000-000000000000
+- !<TypeScriptAssetData/d7577dd0-50d3-4577-a57c-16068c693f10>
+  SvgIcon: ""
+  SetupScript:
+    code: ""
+  Description: ""
+  VersionMajor: 0
+  VersionMinor: 0
+  VersionPatch: 0
+  ComponentUid: 4d057571-d907-4cf0-b58a-3f095a0d001e
+  ExportUid: 00000000-0000-0000-0000-000000000000
+  PackagePolicy: CanBeUnpacked
+  ScriptInputsHidden:
+    statusText: false
+    uiImage: false
+    websocketUrl: false
+  ScriptTypesHidden:
+    {}
+  ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
+  DeclarationFile: !<reference> 00000000-0000-0000-0000-000000000000
+  Tags:
+    []
+  Attachments:
+    []
+  DefaultScriptInputs:
+    - statusText: !<reference.Text> 00000000-0000-0000-0000-000000000000
+      uiImage: !<reference.Image> 00000000-0000-0000-0000-000000000000
+      websocketUrl: "ws://192.168.1.100:8765"
+  ScriptTypes:
+    -
+      {}
+  InputLines:
+    - // @input Component.Text statusText
+    - // @input Component.Image uiImage
+    - '// @input string websocketUrl = "ws://192.168.1.100:8765"'
