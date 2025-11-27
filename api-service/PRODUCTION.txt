@@ -1,0 +1,85 @@
+PRODUCTION DEPLOYMENT
+=====================
+
+Option 1: Run with Python (recommended for simple setup)
+---------------------------------------------------------
+python main.py
+
+This starts uvicorn on 0.0.0.0:8000 and runs forever.
+
+
+Option 2: Run with uvicorn command
+-----------------------------------
+uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
+
+
+Option 3: Run with production script
+-------------------------------------
+./run_production.sh
+
+This runs in foreground. Press Ctrl+C to stop.
+
+
+Option 4: Run in background (keeps running after terminal closes)
+------------------------------------------------------------------
+./run_background.sh
+
+To stop:
+./stop.sh
+
+Or manually:
+kill $(cat api.pid)
+
+
+Option 5: Run as systemd service (Linux only, runs on boot)
+------------------------------------------------------------
+1. Copy systemd-service.example to /etc/systemd/system/memory-api.service
+2. Edit paths in the file
+3. Run:
+   sudo systemctl daemon-reload
+   sudo systemctl enable memory-api
+   sudo systemctl start memory-api
+
+Check status: sudo systemctl status memory-api
+View logs: sudo journalctl -u memory-api -f
+
+
+CONFIGURATION
+=============
+
+Workers:
+- 1 worker = good for light traffic
+- 4 workers = good for medium traffic
+- 2 * CPU_CORES = good for high traffic
+
+Edit in main.py or run_production.sh
+
+
+MONITORING
+==========
+
+Check if running:
+ps aux | grep uvicorn
+
+Check logs (if background):
+tail -f api.log
+
+Test API:
+curl http://localhost:8000/
+
+
+STOPPING
+========
+
+Foreground: Press Ctrl+C
+Background: ./stop.sh or kill $(cat api.pid)
+Systemd: sudo systemctl stop memory-api
+
+
+IMPORTANT
+=========
+
+1. Make sure vector-store is running on port 8001 first!
+2. Check: curl http://localhost:8001/healthz
+3. Then start this API service
+

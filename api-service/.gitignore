@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+venv/
+api.log
+api.pid
+*.log
+
