@@ -6,7 +6,10 @@
       "Bash(del \".\\memARyLENS\\nul\")",
       "Bash(git rm:*)",
       "Bash(git add:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
